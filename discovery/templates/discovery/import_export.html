@@ -1,0 +1,74 @@
+{% extends "discovery/base.html" %}
+{% block title %}导入 / 导出 - GitSeeker{% endblock %}
+
+{% block extra_head %}
+<style>
+  .io-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .io-card h2 {
+    font-size: 1.1rem; font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+    margin: 0 0 0.5rem;
+  }
+  .io-card .desc { color: var(--text-muted); font-size: 0.9rem; margin: 0 0 1rem; }
+  .file-input {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); padding: 8px; border-radius: 6px;
+    font-size: 0.85rem; width: 100%; max-width: 400px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <h1><i class="bi bi-arrow-left-right me-2"></i>导入 / 导出</h1>
+  <p>备份你的收藏数据 · 共 {{ bookmark_count }} 个项目</p>
+</div>
+
+<div class="io-card">
+  <h2><i class="bi bi-download"></i>导出</h2>
+  <p class="desc">
+    导出所有收藏（含标签和备注）。JSON 用于备份/迁移，Markdown 用于分享。
+  </p>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{% url 'export_json' %}" class="btn btn-primary btn-sm">
+      <i class="bi bi-filetype-json me-1"></i>导出 JSON
+    </a>
+    <a href="{% url 'export_markdown' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-markdown me-1"></i>导出 Markdown
+    </a>
+  </div>
+</div>
+
+<div class="io-card">
+  <h2><i class="bi bi-upload"></i>导入</h2>
+  <p class="desc">
+    上传之前导出的 JSON 文件。已存在的收藏会被更新（保留新数据），新的会被添加。
+  </p>
+  <form method="post" action="{% url 'import_bookmarks' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="file" name="file" accept=".json,application/json" class="file-input mb-2">
+    <div>
+      <button type="submit" class="btn btn-primary btn-sm">
+        <i class="bi bi-upload me-1"></i>导入
+      </button>
+    </div>
+  </form>
+</div>
+
+<div class="io-card">
+  <h2><i class="bi bi-info-circle"></i>说明</h2>
+  <ul class="text-muted small" style="line-height: 1.7;">
+    <li>JSON 格式包含完整数据（github_id、stars、标签、备注、收藏时间），用于跨设备迁移</li>
+    <li>Markdown 格式按标签分组，方便复制到 Notion / 博客 / 文档</li>
+    <li>导入时按 <code>github_id</code> 匹配，重复的会更新标签和备注</li>
+  </ul>
+</div>
+
+{% endblock %}

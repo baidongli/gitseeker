@@ -20,6 +20,7 @@ class Repository(models.Model):
     pushed_at = models.DateTimeField(null=True, blank=True)
     created_at_github = models.DateTimeField(null=True, blank=True)
     cached_at = models.DateTimeField(default=timezone.now)
+    readme_summary = models.TextField(blank=True)
 
     class Meta:
         ordering = ["-stars"]

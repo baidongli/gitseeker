@@ -16,7 +16,7 @@
       </button>
     </div>
 
-    <p class="repo-desc">{{ repo.description|default:"暂无描述"|truncatechars:120 }}</p>
+    <p class="repo-desc">{{ repo.readme_summary|default:repo.description|default:"暂无描述"|truncatechars:140 }}</p>
 
     {% if repo.topics %}
     <div class="d-flex flex-wrap gap-1 mb-2">

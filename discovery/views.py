@@ -3,14 +3,14 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone as py_timezone
 from django.db.models import Q
 from django.shortcuts import render, get_object_or_404, redirect
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST
 from django.contrib import messages
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 
 from .models import Repository, Bookmark, Setting, AwesomeList, StarSnapshot, TopicTrend
-from . import github_api, cache as cache_mod, awesome
+from . import github_api, cache as cache_mod, awesome, tldr as tldr_mod
 
 
 RECENT_VIEWS_MAX = 20
@@ -429,6 +429,12 @@ def repo_detail(request, owner, name):
                 output_format="html5",
             )
         )
+        summary = tldr_mod.extract_tldr(readme_raw)
+        if summary and summary != repo.readme_summary:
+            repo.readme_summary = summary
+            repo.save(update_fields=["readme_summary"])
+
+    star_chart = _build_star_chart(repo)
 
     contributors = github_api.get_contributors(owner, name, limit=10)
     commit_series = github_api.get_recent_commits(owner, name, days=30)
@@ -456,7 +462,33 @@ def repo_detail(request, owner, name):
         "max_count": max_count,
         "similar_repos": similar_repos,
         "bookmarked_ids": bookmarked_ids,
+        "star_chart": star_chart,
     })
+
+
+def _build_star_chart(repo):
+    snaps = list(repo.snapshots.order_by("captured_at"))
+    if len(snaps) < 2:
+        return None
+    min_s = min(s.stars for s in snaps)
+    max_s = max(s.stars for s in snaps)
+    span = max(max_s - min_s, 1)
+    n = len(snaps)
+    points = []
+    for i, s in enumerate(snaps):
+        x = round((i / (n - 1)) * 100, 2)
+        y = round(40 - ((s.stars - min_s) / span) * 38 - 1, 2)
+        points.append({"x": x, "y": y, "stars": s.stars, "at": s.captured_at})
+    polyline = " ".join(f"{p['x']},{p['y']}" for p in points)
+    return {
+        "polyline": polyline,
+        "points": points,
+        "first": snaps[0],
+        "last": snaps[-1],
+        "delta": snaps[-1].stars - snaps[0].stars,
+        "min": min_s,
+        "max": max_s,
+    }
 
 
 def awesome_index(request):
@@ -625,3 +657,148 @@ def trends_refresh(request):
 
     messages.success(request, f"已刷新 {len(candidates[:30])} 个主题趋势")
     return redirect("trends")
+
+
+import json
+from collections import defaultdict
+
+
+def _serialize_bookmark(bm):
+    r = bm.repository
+    return {
+        "github_id": r.github_id,
+        "full_name": r.full_name,
+        "name": r.name,
+        "owner_login": r.owner_login,
+        "owner_avatar": r.owner_avatar,
+        "description": r.description,
+        "html_url": r.html_url,
+        "language": r.language,
+        "stars": r.stars,
+        "forks": r.forks,
+        "topics": r.topics,
+        "homepage": r.homepage,
+        "note": bm.note,
+        "tags": bm.tags,
+        "bookmarked_at": bm.created_at.isoformat(),
+    }
+
+
+def export_json(request):
+    data = {
+        "version": 1,
+        "exported_at": timezone.now().isoformat(),
+        "bookmarks": [_serialize_bookmark(bm) for bm in
+                      Bookmark.objects.select_related("repository").all()],
+    }
+    body = json.dumps(data, ensure_ascii=False, indent=2)
+    resp = HttpResponse(body, content_type="application/json; charset=utf-8")
+    resp["Content-Disposition"] = f'attachment; filename="gitseeker-bookmarks-{timezone.now().date()}.json"'
+    return resp
+
+
+def export_markdown(request):
+    bms = list(Bookmark.objects.select_related("repository").all())
+
+    groups = defaultdict(list)
+    for bm in bms:
+        if not bm.tags:
+            groups["未分组"].append(bm)
+        else:
+            for t in bm.tags:
+                groups[t].append(bm)
+
+    lines = [
+        f"# GitSeeker 收藏导出",
+        f"",
+        f"导出时间：{timezone.now().strftime('%Y-%m-%d %H:%M')}  ·  共 {len(bms)} 个项目",
+        f"",
+        f"---",
+        f"",
+    ]
+    for group_name in sorted(groups.keys(), key=lambda g: (g == "未分组", g)):
+        items = groups[group_name]
+        lines.append(f"## #{group_name} ({len(items)})")
+        lines.append("")
+        for bm in items:
+            r = bm.repository
+            line = f"- **[{r.full_name}]({r.html_url})**"
+            badges = []
+            if r.language:
+                badges.append(r.language)
+            badges.append(f"⭐ {r.stars_display}")
+            line += f" · {' · '.join(badges)}"
+            lines.append(line)
+            if r.readme_summary or r.description:
+                lines.append(f"  - {(r.readme_summary or r.description)[:200]}")
+            if bm.note:
+                lines.append(f"  - 📝 {bm.note}")
+        lines.append("")
+
+    body = "\n".join(lines)
+    resp = HttpResponse(body, content_type="text/markdown; charset=utf-8")
+    resp["Content-Disposition"] = f'attachment; filename="gitseeker-bookmarks-{timezone.now().date()}.md"'
+    return resp
+
+
+@require_POST
+def import_bookmarks(request):
+    upload = request.FILES.get("file")
+    if not upload:
+        messages.error(request, "请选择一个 JSON 文件")
+        return redirect("import_export")
+
+    try:
+        raw = upload.read().decode("utf-8")
+        data = json.loads(raw)
+    except Exception as e:
+        messages.error(request, f"文件解析失败：{e}")
+        return redirect("import_export")
+
+    bookmarks = data.get("bookmarks") or []
+    imported = 0
+    skipped = 0
+
+    for item in bookmarks:
+        try:
+            github_id = item.get("github_id")
+            full_name = item.get("full_name")
+            if not github_id or not full_name:
+                skipped += 1
+                continue
+            repo, _ = Repository.objects.update_or_create(
+                github_id=github_id,
+                defaults={
+                    "full_name": full_name,
+                    "name": item.get("name") or full_name.split("/")[-1],
+                    "owner_login": item.get("owner_login") or full_name.split("/")[0],
+                    "owner_avatar": item.get("owner_avatar", ""),
+                    "description": item.get("description", ""),
+                    "html_url": item.get("html_url", f"https://github.com/{full_name}"),
+                    "language": item.get("language", ""),
+                    "stars": item.get("stars", 0),
+                    "forks": item.get("forks", 0),
+                    "topics": item.get("topics", []),
+                    "homepage": item.get("homepage", ""),
+                    "cached_at": timezone.now(),
+                },
+            )
+            Bookmark.objects.update_or_create(
+                repository=repo,
+                defaults={
+                    "note": item.get("note", ""),
+                    "tags": item.get("tags", []),
+                },
+            )
+            imported += 1
+        except Exception:
+            skipped += 1
+
+    messages.success(request, f"导入完成：成功 {imported} 个，跳过 {skipped} 个")
+    return redirect("bookmarks")
+
+
+def import_export(request):
+    return render(request, "discovery/import_export.html", {
+        "bookmark_count": Bookmark.objects.count(),
+    })

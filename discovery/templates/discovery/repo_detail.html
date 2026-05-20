@@ -179,6 +179,31 @@
 
   <!-- Sidebar -->
   <div class="col-lg-4">
+    <!-- Star history -->
+    {% if star_chart %}
+    <div class="section-card">
+      <h3><i class="bi bi-star-half"></i> Star 历史</h3>
+      <svg viewBox="0 0 100 40" preserveAspectRatio="none" style="width:100%; height:80px; display:block;">
+        <polyline points="{{ star_chart.polyline }}" fill="none" stroke="var(--yellow)" stroke-width="0.8"/>
+        {% for p in star_chart.points %}
+        <circle cx="{{ p.x }}" cy="{{ p.y }}" r="0.7" fill="var(--yellow)">
+          <title>{{ p.at|date:"Y-m-d H:i" }}: {{ p.stars }} stars</title>
+        </circle>
+        {% endfor %}
+      </svg>
+      <p class="text-muted small mb-0 mt-2">
+        {{ star_chart.first.captured_at|date:"m-d" }} 起记录
+        {% if star_chart.delta > 0 %}
+        · <span class="text-success">+{{ star_chart.delta }} stars</span>
+        {% elif star_chart.delta < 0 %}
+        · <span class="text-danger">{{ star_chart.delta }} stars</span>
+        {% else %}
+        · 持平
+        {% endif %}
+      </p>
+    </div>
+    {% endif %}
+
     <!-- Commit activity -->
     <div class="section-card">
       <h3><i class="bi bi-activity"></i> 近 30 天活跃度</h3>
