@@ -47,6 +47,7 @@ class Bookmark(models.Model):
         Repository, on_delete=models.CASCADE, related_name="bookmark"
     )
     note = models.TextField(blank=True)
+    tags = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -1,69 +1,218 @@
 {% extends "discovery/base.html" %}
 {% load discovery_extras %}
 {% block title %}我的收藏 - GitSeeker{% endblock %}
+
+{% block extra_head %}
+<style>
+  .stats-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .stats-card h6 {
+    color: var(--text-muted); font-size: 0.8rem;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin: 0 0 0.75rem;
+  }
+  .stat-bar {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 6px; font-size: 0.85rem;
+  }
+  .stat-bar .name { width: 80px; color: var(--text); }
+  .stat-bar .bar-wrap { flex: 1; background: var(--surface2); height: 8px; border-radius: 4px; overflow: hidden; }
+  .stat-bar .bar { height: 100%; background: var(--accent); }
+  .stat-bar .count { color: var(--text-muted); font-size: 0.75rem; width: 30px; text-align: right; }
+
+  .topic-cloud { display: flex; flex-wrap: wrap; gap: 4px; }
+  .topic-cloud a {
+    background: var(--surface2); border: 1px solid var(--border);
+    padding: 2px 10px; border-radius: 20px; font-size: 0.75rem;
+    color: var(--text-muted); text-decoration: none;
+  }
+  .topic-cloud a:hover { color: var(--accent); border-color: var(--accent); }
+
+  .bm-tag {
+    display: inline-block; background: rgba(88, 166, 255, 0.15);
+    color: var(--accent); border: 1px solid rgba(88, 166, 255, 0.3);
+    border-radius: 4px; padding: 1px 8px; font-size: 0.72rem;
+    margin-right: 4px; margin-bottom: 4px;
+  }
+  .bm-edit-form {
+    border-top: 1px solid var(--border);
+    margin-top: 8px; padding-top: 8px;
+    display: none;
+  }
+  .bm-edit-form.open { display: block; }
+  .bm-edit-form input, .bm-edit-form textarea {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); font-size: 0.8rem;
+    padding: 4px 8px; border-radius: 4px; width: 100%; margin-bottom: 6px;
+  }
+  .bm-edit-form textarea { resize: vertical; min-height: 50px; }
+  .edit-toggle {
+    background: none; border: none; color: var(--text-muted);
+    font-size: 0.75rem; padding: 0; cursor: pointer;
+  }
+  .edit-toggle:hover { color: var(--accent); }
+  .bm-note {
+    color: var(--text-muted); font-size: 0.8rem;
+    font-style: italic; margin: 4px 0 0;
+    padding-left: 8px; border-left: 2px solid var(--border);
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 
 <div class="page-header">
   <h1><i class="bi bi-bookmark-heart me-2"></i>我的收藏</h1>
-  <p>你收藏的 {{ bookmarks|length }} 个项目</p>
+  <p>共 {{ total_count }} 个项目</p>
 </div>
 
-{% if bookmarks %}
-<div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
-  {% for bm in bookmarks %}
-  {% with repo=bm.repository %}
-  <div class="col">
-    <div class="repo-card">
-      <div class="d-flex justify-content-between align-items-start mb-1">
-        <div>
-          <div class="repo-owner d-flex align-items-center gap-1 mb-1">
-            <img src="{{ repo.owner_avatar }}" alt="" class="owner-avatar">
-            {{ repo.owner_login }}
-          </div>
-          <a href="{% url 'repo_detail' repo.owner_login repo.name %}" class="repo-name">{{ repo.name }}</a>
-        </div>
-        <form method="post" action="{% url 'delete_bookmark' repo.id %}">
-          {% csrf_token %}
-          <button type="submit" class="bookmark-btn active" title="取消收藏">
-            <i class="bi bi-bookmark-fill"></i>
-          </button>
-        </form>
+{% if total_count > 0 %}
+<div class="row g-3 mb-4">
+  <!-- Stats sidebar -->
+  <div class="col-lg-4">
+    {% if top_langs %}
+    <div class="stats-card">
+      <h6>语言分布</h6>
+      {% for lang, count, pct in top_langs %}
+      <div class="stat-bar">
+        <span class="name" style="color: {{ lang|lang_color }}">●&nbsp;{{ lang }}</span>
+        <div class="bar-wrap"><div class="bar" style="width: {{ pct }}%; background: {{ lang|lang_color }}"></div></div>
+        <span class="count">{{ count }}</span>
       </div>
+      {% endfor %}
+    </div>
+    {% endif %}
 
-      <p class="repo-desc">{{ repo.description|default:"暂无描述"|truncatechars:120 }}</p>
-
-      {% if repo.topics %}
-      <div class="d-flex flex-wrap gap-1 mb-2">
-        {% for topic in repo.topics|slice:":4" %}
-        <span class="topic-badge">{{ topic }}</span>
+    {% if top_topics %}
+    <div class="stats-card">
+      <h6>热门标签</h6>
+      <div class="topic-cloud">
+        {% for topic, count in top_topics %}
+        <a href="?q={{ topic }}">{{ topic }} <small>{{ count }}</small></a>
         {% endfor %}
       </div>
-      {% endif %}
+    </div>
+    {% endif %}
 
-      <div class="repo-meta">
-        {% if repo.language %}
-        <span class="meta-item">
-          <span class="lang-dot" style="background: {{ repo.language|lang_color }}"></span>
-          {{ repo.language }}
-        </span>
-        {% endif %}
-        <span class="meta-item stars-count">
-          <i class="bi bi-star-fill"></i>
-          {{ repo.stars_display }}
-        </span>
-        <span class="meta-item">
-          <i class="bi bi-diagram-2"></i>
-          {{ repo.forks }}
-        </span>
-        <span class="meta-item ms-auto text-muted" style="font-size:0.75rem">
-          收藏于 {{ bm.created_at|date:"Y-m-d" }}
-        </span>
+    {% if all_tags %}
+    <div class="stats-card">
+      <h6>我的分组</h6>
+      <div class="topic-cloud">
+        <a href="{% url 'bookmarks' %}" class="{% if not tag_filter %}active{% endif %}"
+           style="{% if not tag_filter %}background: var(--accent); color: #000; border-color: var(--accent);{% endif %}">
+          全部
+        </a>
+        {% for tag, count in all_tags %}
+        <a href="?tag={{ tag }}"
+           style="{% if tag == tag_filter %}background: var(--accent); color: #000; border-color: var(--accent);{% endif %}">
+          {{ tag }} <small>{{ count }}</small>
+        </a>
+        {% endfor %}
       </div>
     </div>
+    {% endif %}
   </div>
-  {% endwith %}
-  {% endfor %}
+
+  <!-- Main: search + list -->
+  <div class="col-lg-8">
+    <form method="get" class="filter-bar mb-3" style="margin-bottom: 0 !important;">
+      <div class="input-group input-group-sm">
+        <span class="input-group-text" style="background: var(--surface2); border-color: var(--border); color: var(--text-muted);">
+          <i class="bi bi-search"></i>
+        </span>
+        <input type="text" name="q" value="{{ query }}" class="form-control"
+               placeholder="在收藏中搜索（名称 / 描述 / 备注）">
+        {% if tag_filter %}<input type="hidden" name="tag" value="{{ tag_filter }}">{% endif %}
+        <button type="submit" class="btn btn-primary btn-sm">搜索</button>
+        {% if query or tag_filter %}
+        <a href="{% url 'bookmarks' %}" class="btn btn-outline-secondary btn-sm">清除</a>
+        {% endif %}
+      </div>
+    </form>
+
+    {% if query or tag_filter %}
+    <p class="text-muted small mb-3">
+      {% if tag_filter %}分组 <strong>{{ tag_filter }}</strong> · {% endif %}
+      {% if query %}搜索 "<strong>{{ query }}</strong>" · {% endif %}
+      命中 {{ bookmarks|length }} 个
+    </p>
+    {% endif %}
+
+    {% if bookmarks %}
+    <div class="row row-cols-1 row-cols-md-2 g-3">
+      {% for bm in bookmarks %}
+      {% with repo=bm.repository %}
+      <div class="col">
+        <div class="repo-card">
+          <div class="d-flex justify-content-between align-items-start mb-1">
+            <div>
+              <div class="repo-owner d-flex align-items-center gap-1 mb-1">
+                <img src="{{ repo.owner_avatar }}" alt="" class="owner-avatar">
+                {{ repo.owner_login }}
+              </div>
+              <a href="{% url 'repo_detail' repo.owner_login repo.name %}" class="repo-name">{{ repo.name }}</a>
+            </div>
+            <form method="post" action="{% url 'delete_bookmark' repo.id %}">
+              {% csrf_token %}
+              <button type="submit" class="bookmark-btn active" title="取消收藏">
+                <i class="bi bi-bookmark-fill"></i>
+              </button>
+            </form>
+          </div>
+
+          <p class="repo-desc">{{ repo.description|default:"暂无描述"|truncatechars:100 }}</p>
+
+          {% if bm.tags %}
+          <div>
+            {% for tag in bm.tags %}<span class="bm-tag">#{{ tag }}</span>{% endfor %}
+          </div>
+          {% endif %}
+          {% if bm.note %}
+          <p class="bm-note">{{ bm.note }}</p>
+          {% endif %}
+
+          <div class="repo-meta mt-2">
+            {% if repo.language %}
+            <span class="meta-item">
+              <span class="lang-dot" style="background: {{ repo.language|lang_color }}"></span>
+              {{ repo.language }}
+            </span>
+            {% endif %}
+            <span class="meta-item stars-count">
+              <i class="bi bi-star-fill"></i>{{ repo.stars_display }}
+            </span>
+            <button class="edit-toggle ms-auto" data-target="edit-{{ bm.id }}">
+              <i class="bi bi-pencil"></i> 编辑
+            </button>
+          </div>
+
+          <form method="post" action="{% url 'update_bookmark' repo.id %}"
+                class="bm-edit-form" id="edit-{{ bm.id }}">
+            {% csrf_token %}
+            <input type="text" name="tags" value="{{ bm.tags|join:', ' }}"
+                   placeholder="分组标签，逗号分隔，如：工具, 学习">
+            <textarea name="note" placeholder="备注（可选）">{{ bm.note }}</textarea>
+            <button type="submit" class="btn btn-primary btn-sm">保存</button>
+          </form>
+        </div>
+      </div>
+      {% endwith %}
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <i class="bi bi-search"></i>
+      <p>没有匹配的收藏</p>
+    </div>
+    {% endif %}
+  </div>
 </div>
+
 {% else %}
 <div class="empty-state">
   <i class="bi bi-bookmark"></i>
@@ -71,5 +220,14 @@
   <a href="{% url 'index' %}" class="btn btn-primary mt-2">去发现项目</a>
 </div>
 {% endif %}
+
+<script>
+  document.querySelectorAll(".edit-toggle").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const form = document.getElementById(btn.dataset.target);
+      if (form) form.classList.toggle("open");
+    });
+  });
+</script>
 
 {% endblock %}

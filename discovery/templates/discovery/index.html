@@ -34,6 +34,29 @@
   </form>
 </div>
 
+{% if recent_repos %}
+<div class="mb-4">
+  <h5 class="mb-3" style="font-size: 0.95rem; color: var(--text-muted);">
+    <i class="bi bi-clock-history me-1"></i>最近浏览
+  </h5>
+  <div class="row row-cols-2 row-cols-md-3 row-cols-xl-6 g-2">
+    {% for repo in recent_repos %}
+    <div class="col">
+      <a href="{% url 'repo_detail' repo.owner_login repo.name %}"
+         class="d-flex align-items-center gap-2 p-2 text-decoration-none"
+         style="background: var(--surface); border: 1px solid var(--border); border-radius: 6px;">
+        <img src="{{ repo.owner_avatar }}" alt="" style="width: 24px; height: 24px; border-radius: 50%;">
+        <div style="min-width: 0; flex: 1;">
+          <div style="color: var(--text); font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ repo.name }}</div>
+          <div style="color: var(--text-muted); font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ repo.owner_login }}</div>
+        </div>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 {% if error %}
 <div class="alert alert-warning">
   <i class="bi bi-exclamation-triangle me-2"></i>
