@@ -1,0 +1,55 @@
+{% extends "discovery/base.html" %}
+{% block title %}探索 - GitSeeker{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1><i class="bi bi-compass me-2"></i>探索分类</h1>
+  <p>按主题或编程语言发现优质开源项目</p>
+</div>
+
+<!-- Topic + Language filters -->
+<div class="filter-bar">
+  <div class="mb-3">
+    <p class="text-muted small mb-2">主题</p>
+    <div class="pill-group">
+      <a href="{% url 'explore' %}{% if selected_lang %}?lang={{ selected_lang }}{% endif %}"
+         class="pill {% if not selected_topic %}active{% endif %}">全部</a>
+      {% for key, label in topics %}
+      <a href="?topic={{ key }}{% if selected_lang %}&lang={{ selected_lang }}{% endif %}"
+         class="pill {% if selected_topic == key %}active{% endif %}">{{ label }}</a>
+      {% endfor %}
+    </div>
+  </div>
+  <div>
+    <p class="text-muted small mb-2">语言</p>
+    <div class="pill-group">
+      <a href="{% url 'explore' %}{% if selected_topic %}?topic={{ selected_topic }}{% endif %}"
+         class="pill {% if not selected_lang %}active{% endif %}">全部</a>
+      {% for lang in languages %}
+      <a href="?{% if selected_topic %}topic={{ selected_topic }}&{% endif %}lang={{ lang }}"
+         class="pill {% if selected_lang == lang %}active{% endif %}">{{ lang }}</a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% if error %}
+<div class="alert alert-warning">
+  <i class="bi bi-exclamation-triangle me-2"></i>{{ error }}
+</div>
+{% endif %}
+
+{% if repos %}
+<div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+  {% for repo in repos %}
+    {% include "discovery/_repo_card.html" %}
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <i class="bi bi-inbox"></i>
+  <p>暂无数据</p>
+</div>
+{% endif %}
+
+{% endblock %}

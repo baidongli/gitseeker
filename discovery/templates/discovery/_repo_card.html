@@ -1,0 +1,52 @@
+{% load discovery_extras %}
+<div class="col">
+  <div class="repo-card">
+    <div class="d-flex justify-content-between align-items-start mb-1">
+      <div>
+        <div class="repo-owner d-flex align-items-center gap-1 mb-1">
+          <img src="{{ repo.owner_avatar }}" alt="" class="owner-avatar">
+          {{ repo.owner_login }}
+        </div>
+        <a href="{{ repo.html_url }}" target="_blank" rel="noopener" class="repo-name">{{ repo.name }}</a>
+      </div>
+      <button class="bookmark-btn {% if repo.id in bookmarked_ids %}active{% endif %}"
+              data-url="{% url 'toggle_bookmark' repo.id %}"
+              title="收藏">
+        <i class="bi {% if repo.id in bookmarked_ids %}bi-bookmark-fill{% else %}bi-bookmark{% endif %}"></i>
+      </button>
+    </div>
+
+    <p class="repo-desc">{{ repo.description|default:"暂无描述"|truncatechars:120 }}</p>
+
+    {% if repo.topics %}
+    <div class="d-flex flex-wrap gap-1 mb-2">
+      {% for topic in repo.topics|slice:":4" %}
+      <span class="topic-badge">{{ topic }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="repo-meta">
+      {% if repo.language %}
+      <span class="meta-item">
+        <span class="lang-dot" style="background: {{ repo.language|lang_color }}"></span>
+        {{ repo.language }}
+      </span>
+      {% endif %}
+      <span class="meta-item stars-count">
+        <i class="bi bi-star-fill"></i>
+        {{ repo.stars_display }}
+      </span>
+      <span class="meta-item">
+        <i class="bi bi-diagram-2"></i>
+        {{ repo.forks }}
+      </span>
+      {% if repo.pushed_at %}
+      <span class="meta-item ms-auto">
+        <i class="bi bi-clock"></i>
+        {{ repo.pushed_at|timesince }} 前
+      </span>
+      {% endif %}
+    </div>
+  </div>
+</div>

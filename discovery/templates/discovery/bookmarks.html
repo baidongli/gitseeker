@@ -1,0 +1,75 @@
+{% extends "discovery/base.html" %}
+{% load discovery_extras %}
+{% block title %}我的收藏 - GitSeeker{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1><i class="bi bi-bookmark-heart me-2"></i>我的收藏</h1>
+  <p>你收藏的 {{ bookmarks|length }} 个项目</p>
+</div>
+
+{% if bookmarks %}
+<div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+  {% for bm in bookmarks %}
+  {% with repo=bm.repository %}
+  <div class="col">
+    <div class="repo-card">
+      <div class="d-flex justify-content-between align-items-start mb-1">
+        <div>
+          <div class="repo-owner d-flex align-items-center gap-1 mb-1">
+            <img src="{{ repo.owner_avatar }}" alt="" class="owner-avatar">
+            {{ repo.owner_login }}
+          </div>
+          <a href="{{ repo.html_url }}" target="_blank" rel="noopener" class="repo-name">{{ repo.name }}</a>
+        </div>
+        <form method="post" action="{% url 'delete_bookmark' repo.id %}">
+          {% csrf_token %}
+          <button type="submit" class="bookmark-btn active" title="取消收藏">
+            <i class="bi bi-bookmark-fill"></i>
+          </button>
+        </form>
+      </div>
+
+      <p class="repo-desc">{{ repo.description|default:"暂无描述"|truncatechars:120 }}</p>
+
+      {% if repo.topics %}
+      <div class="d-flex flex-wrap gap-1 mb-2">
+        {% for topic in repo.topics|slice:":4" %}
+        <span class="topic-badge">{{ topic }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="repo-meta">
+        {% if repo.language %}
+        <span class="meta-item">
+          <span class="lang-dot" style="background: {{ repo.language|lang_color }}"></span>
+          {{ repo.language }}
+        </span>
+        {% endif %}
+        <span class="meta-item stars-count">
+          <i class="bi bi-star-fill"></i>
+          {{ repo.stars_display }}
+        </span>
+        <span class="meta-item">
+          <i class="bi bi-diagram-2"></i>
+          {{ repo.forks }}
+        </span>
+        <span class="meta-item ms-auto text-muted" style="font-size:0.75rem">
+          收藏于 {{ bm.created_at|date:"Y-m-d" }}
+        </span>
+      </div>
+    </div>
+  </div>
+  {% endwith %}
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <i class="bi bi-bookmark"></i>
+  <p>还没有收藏任何项目</p>
+  <a href="{% url 'index' %}" class="btn btn-primary mt-2">去发现项目</a>
+</div>
+{% endif %}
+
+{% endblock %}
