@@ -9,8 +9,8 @@ from django.contrib import messages
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 
-from .models import Repository, Bookmark, Setting
-from . import github_api, cache as cache_mod
+from .models import Repository, Bookmark, Setting, AwesomeList, StarSnapshot, TopicTrend
+from . import github_api, cache as cache_mod, awesome
 
 
 RECENT_VIEWS_MAX = 20
@@ -50,12 +50,17 @@ TOPICS = [
 
 def _upsert_repos(items):
     repos = []
+    now = timezone.now()
+    cutoff = now - timedelta(hours=12)
     for item in items:
         repo, _ = Repository.objects.update_or_create(
             github_id=item["github_id"],
-            defaults={**item, "cached_at": timezone.now()},
+            defaults={**item, "cached_at": now},
         )
         repos.append(repo)
+        last = repo.snapshots.order_by("-captured_at").first()
+        if not last or last.captured_at < cutoff:
+            StarSnapshot.objects.create(repository=repo, stars=repo.stars)
     return repos
 
 
@@ -452,3 +457,171 @@ def repo_detail(request, owner, name):
         "similar_repos": similar_repos,
         "bookmarked_ids": bookmarked_ids,
     })
+
+
+def awesome_index(request):
+    existing = {al.full_name: al for al in AwesomeList.objects.all()}
+    lists = []
+    for full_name, title, desc in awesome.CURATED:
+        obj = existing.get(full_name)
+        lists.append({
+            "full_name": full_name,
+            "owner": full_name.split("/")[0],
+            "name": full_name.split("/")[1],
+            "title": title,
+            "desc": desc,
+            "fetched": obj is not None,
+            "items_count": obj.items_count if obj else 0,
+            "last_fetched": obj.last_fetched if obj else None,
+        })
+    return render(request, "discovery/awesome.html", {"lists": lists})
+
+
+@require_POST
+def awesome_refresh(request, owner, name):
+    full_name = f"{owner}/{name}"
+    readme = github_api.get_readme(owner, name)
+    if not readme:
+        messages.error(request, f"无法获取 {full_name} 的 README")
+        return redirect("awesome_index")
+
+    sections = awesome.parse(readme)
+    items_count = sum(len(s["items"]) for s in sections)
+
+    title = full_name
+    for t, label, _ in awesome.CURATED:
+        if t == full_name:
+            title = label
+            break
+
+    AwesomeList.objects.update_or_create(
+        full_name=full_name,
+        defaults={
+            "title": title,
+            "sections": sections,
+            "items_count": items_count,
+            "last_fetched": timezone.now(),
+        },
+    )
+    messages.success(request, f"已抓取 {items_count} 个项目")
+    return redirect("awesome_detail", owner=owner, name=name)
+
+
+def awesome_detail(request, owner, name):
+    full_name = f"{owner}/{name}"
+    al = AwesomeList.objects.filter(full_name=full_name).first()
+    if not al:
+        messages.info(request, "该列表还未抓取，点击抓取按钮获取数据")
+        return redirect("awesome_index")
+    return render(request, "discovery/awesome_detail.html", {"al": al})
+
+
+def rising(request):
+    candidates = (
+        Repository.objects
+        .filter(snapshots__captured_at__lte=timezone.now() - timedelta(days=2))
+        .distinct()
+    )
+    real_growth = []
+    for repo in candidates[:500]:
+        snaps = repo.snapshots.order_by("captured_at")
+        first = snaps.first()
+        last = snaps.last()
+        if not first or not last or first.stars == 0:
+            continue
+        delta = last.stars - first.stars
+        if delta <= 0:
+            continue
+        days = max((last.captured_at - first.captured_at).total_seconds() / 86400, 1)
+        pct = (delta / first.stars) * 100
+        real_growth.append({
+            "repo": repo,
+            "delta": delta,
+            "days": round(days, 1),
+            "pct": round(pct, 1),
+            "rate": round(delta / days, 1),
+        })
+    real_growth.sort(key=lambda x: x["pct"], reverse=True)
+    real_growth = real_growth[:30]
+
+    year_ago = timezone.now() - timedelta(days=365)
+    proxy = (
+        Repository.objects
+        .filter(created_at_github__gte=year_ago, stars__gte=100)
+        .order_by("-stars")[:200]
+    )
+    proxy_items = []
+    now = timezone.now()
+    for repo in proxy:
+        if not repo.created_at_github:
+            continue
+        days = max((now - repo.created_at_github).total_seconds() / 86400, 1)
+        proxy_items.append({
+            "repo": repo,
+            "days": int(days),
+            "rate": round(repo.stars / days, 1),
+        })
+    proxy_items.sort(key=lambda x: x["rate"], reverse=True)
+    proxy_items = proxy_items[:30]
+
+    bookmarked_ids = set(Bookmark.objects.values_list("repository_id", flat=True))
+
+    return render(request, "discovery/rising.html", {
+        "real_growth": real_growth,
+        "proxy_items": proxy_items,
+        "bookmarked_ids": bookmarked_ids,
+    })
+
+
+def trends(request):
+    trends_list = TopicTrend.objects.order_by("-growth_pct")
+    last_update = trends_list.first().updated_at if trends_list.exists() else None
+    return render(request, "discovery/trends.html", {
+        "trends": trends_list,
+        "last_update": last_update,
+    })
+
+
+@require_POST
+def trends_refresh(request):
+    topic_counter = Counter()
+    for repo in Repository.objects.exclude(topics=[]):
+        for t in repo.topics or []:
+            topic_counter[t] += 1
+
+    candidates = [t for t, c in topic_counter.most_common(40) if c >= 3]
+    if not candidates:
+        candidates = ["machine-learning", "rust", "typescript", "ai", "llm",
+                      "web", "cli", "database", "docker", "kubernetes",
+                      "python", "javascript", "go", "agent", "rag",
+                      "wasm", "blockchain", "security", "devops", "framework"]
+
+    now = datetime.now(tz=py_timezone.utc)
+    this_start = now.replace(day=1).strftime("%Y-%m-%d")
+    last_month_end = (now.replace(day=1) - timedelta(days=1))
+    last_start = last_month_end.replace(day=1).strftime("%Y-%m-%d")
+    last_end = last_month_end.strftime("%Y-%m-%d")
+
+    for topic in candidates[:30]:
+        try:
+            this_count = github_api.search_count(f"topic:{topic} created:>{this_start}")
+            last_count = github_api.search_count(f"topic:{topic} created:{last_start}..{last_end}")
+        except Exception:
+            continue
+        if last_count > 0:
+            growth = (this_count - last_count) / last_count * 100
+        elif this_count > 0:
+            growth = 100.0
+        else:
+            growth = 0.0
+        TopicTrend.objects.update_or_create(
+            topic=topic,
+            defaults={
+                "this_month_count": this_count,
+                "last_month_count": last_count,
+                "growth_pct": round(growth, 1),
+            },
+        )
+
+    messages.success(request, f"已刷新 {len(candidates[:30])} 个主题趋势")
+    return redirect("trends")

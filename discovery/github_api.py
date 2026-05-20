@@ -108,6 +108,22 @@ def get_rate_limit():
         return {"error": str(e)}
 
 
+@cached("search_count", ttl=3600)
+def search_count(query):
+    """Return just the total_count for a search query (faster than fetching items)."""
+    try:
+        resp = requests.get(
+            f"{GITHUB_API}/search/repositories",
+            headers=_headers(),
+            params={"q": query, "per_page": 1},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        return resp.json().get("total_count", 0)
+    except Exception:
+        return 0
+
+
 def validate_token(token):
     """Return (ok: bool, login_or_error: str)."""
     try:

@@ -1,0 +1,116 @@
+{% extends "discovery/base.html" %}
+{% block title %}{{ al.title }} - Awesome{% endblock %}
+
+{% block extra_head %}
+<style>
+  .aw-section { margin-bottom: 2rem; }
+  .aw-section-title {
+    font-size: 1rem; font-weight: 600;
+    color: var(--accent); margin: 1.5rem 0 0.75rem;
+    padding-bottom: 6px; border-bottom: 1px solid var(--border);
+  }
+  .aw-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 8px;
+  }
+  .aw-item .name {
+    font-weight: 600; color: var(--accent);
+    text-decoration: none; font-size: 0.9rem;
+  }
+  .aw-item .name:hover { color: var(--accent-hover); }
+  .aw-item .full { color: var(--text-muted); font-size: 0.75rem; margin-left: 8px; }
+  .aw-item .desc {
+    color: var(--text-muted); font-size: 0.83rem;
+    line-height: 1.5; margin: 4px 0 0;
+  }
+  .filter-input {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); padding: 8px 14px;
+    border-radius: 8px; width: 100%; font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+  }
+  .filter-input:focus { border-color: var(--accent); outline: none; }
+  .toc { position: sticky; top: 80px; }
+  .toc a {
+    display: block; padding: 4px 0; font-size: 0.83rem;
+    color: var(--text-muted); text-decoration: none;
+  }
+  .toc a:hover { color: var(--accent); }
+  .no-match { display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+  <div>
+    <h1><i class="bi bi-collection me-2"></i>{{ al.title }}</h1>
+    <p>
+      <a href="https://github.com/{{ al.full_name }}" target="_blank" rel="noopener">{{ al.full_name }}</a>
+      &nbsp;·&nbsp; {{ al.items_count }} 个项目 &nbsp;·&nbsp; 抓取于 {{ al.last_fetched|timesince }}前
+    </p>
+  </div>
+  <div>
+    <a href="{% url 'awesome_index' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>返回列表
+    </a>
+    <form method="post" action="{% url 'awesome_refresh' al.owner al.name %}" class="d-inline">
+      {% csrf_token %}
+      <button class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-clockwise me-1"></i>重新抓取
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-lg-9">
+    <input type="text" id="filterInput" class="filter-input"
+           placeholder="🔍 在 {{ al.items_count }} 个项目中过滤（名称/描述）...">
+
+    {% for section in al.sections %}
+    <div class="aw-section" data-section>
+      <h3 class="aw-section-title" id="sec-{{ forloop.counter }}">{{ section.title }}</h3>
+      {% for item in section.items %}
+      <div class="aw-item" data-item data-text="{{ item.name|lower }} {{ item.desc|lower }} {{ item.full_name|lower }}">
+        <a href="{% url 'repo_detail' item.owner item.repo %}" class="name">{{ item.name }}</a>
+        <span class="full">{{ item.full_name }}</span>
+        {% if item.desc %}<p class="desc">{{ item.desc }}</p>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="col-lg-3 d-none d-lg-block">
+    <div class="toc">
+      <p class="text-muted small mb-2"><i class="bi bi-list me-1"></i>目录</p>
+      {% for section in al.sections %}
+      <a href="#sec-{{ forloop.counter }}">{{ section.title }}</a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<script>
+  const input = document.getElementById("filterInput");
+  const items = document.querySelectorAll("[data-item]");
+  const sections = document.querySelectorAll("[data-section]");
+
+  input.addEventListener("input", () => {
+    const q = input.value.toLowerCase().trim();
+    items.forEach(el => {
+      const match = !q || el.dataset.text.includes(q);
+      el.style.display = match ? "" : "none";
+    });
+    sections.forEach(sec => {
+      const visible = sec.querySelectorAll('[data-item]:not([style*="none"])').length;
+      sec.style.display = visible ? "" : "none";
+    });
+  });
+</script>
+
+{% endblock %}

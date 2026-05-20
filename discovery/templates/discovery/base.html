@@ -154,6 +154,8 @@
     .pagination .page-item.active .page-link { background: var(--accent); border-color: var(--accent); color: #fff; }
     .pagination .page-item.disabled .page-link { background: var(--surface); color: var(--text-muted); opacity: 0.5; }
 
+    .dropdown-menu .dropdown-item:hover { background: var(--surface2); color: var(--accent) !important; }
+
     /* kbd */
     kbd {
       background: var(--surface2); border: 1px solid var(--border);
@@ -195,10 +197,16 @@
               <i class="bi bi-compass"></i>探索
             </a>
           </li>
-          <li class="nav-item">
-            <a class="nav-link {% if request.resolver_match.url_name == 'gems' %}active{% endif %}" href="{% url 'gems' %}">
-              <i class="bi bi-gem"></i>宝石
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+              <i class="bi bi-stars"></i>挖宝
             </a>
+            <ul class="dropdown-menu" style="background: var(--surface); border-color: var(--border);">
+              <li><a class="dropdown-item" href="{% url 'gems' %}" style="color: var(--text);"><i class="bi bi-gem me-1"></i>隐藏宝石</a></li>
+              <li><a class="dropdown-item" href="{% url 'rising' %}" style="color: var(--text);"><i class="bi bi-graph-up-arrow me-1"></i>飙升榜</a></li>
+              <li><a class="dropdown-item" href="{% url 'awesome_index' %}" style="color: var(--text);"><i class="bi bi-collection me-1"></i>Awesome 列表</a></li>
+              <li><a class="dropdown-item" href="{% url 'trends' %}" style="color: var(--text);"><i class="bi bi-broadcast me-1"></i>主题雷达</a></li>
+            </ul>
           </li>
           <li class="nav-item">
             <a class="nav-link {% if request.resolver_match.url_name == 'compare' %}active{% endif %}" href="{% url 'compare' %}">
@@ -259,6 +267,9 @@
               <tr><td><kbd>g</kbd> <kbd>s</kbd></td><td>搜索</td></tr>
               <tr><td><kbd>g</kbd> <kbd>e</kbd></td><td>探索</td></tr>
               <tr><td><kbd>g</kbd> <kbd>m</kbd></td><td>隐藏宝石</td></tr>
+              <tr><td><kbd>g</kbd> <kbd>r</kbd></td><td>飙升榜</td></tr>
+              <tr><td><kbd>g</kbd> <kbd>a</kbd></td><td>Awesome 列表</td></tr>
+              <tr><td><kbd>g</kbd> <kbd>t</kbd></td><td>主题雷达</td></tr>
               <tr><td><kbd>g</kbd> <kbd>c</kbd></td><td>项目对比</td></tr>
               <tr><td><kbd>g</kbd> <kbd>b</kbd></td><td>收藏</td></tr>
               <tr><td><kbd>t</kbd></td><td>切换主题</td></tr>
@@ -323,6 +334,9 @@
       m: "{% url 'gems' %}",
       c: "{% url 'compare' %}",
       b: "{% url 'bookmarks' %}",
+      r: "{% url 'rising' %}",
+      a: "{% url 'awesome_index' %}",
+      t: "{% url 'trends' %}",
     };
     document.addEventListener("keydown", (e) => {
       if (e.target.matches("input, textarea, select")) return;

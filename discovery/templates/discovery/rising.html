@@ -1,0 +1,124 @@
+{% extends "discovery/base.html" %}
+{% load discovery_extras %}
+{% block title %}飙升榜 - GitSeeker{% endblock %}
+
+{% block extra_head %}
+<style>
+  .rank-row {
+    display: flex; align-items: center; gap: 1rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 8px;
+  }
+  .rank-row .rank {
+    font-size: 1.2rem; font-weight: 700; color: var(--text-muted);
+    width: 32px; text-align: center;
+  }
+  .rank-row .info { flex: 1; min-width: 0; }
+  .rank-row .name {
+    font-weight: 600; color: var(--accent); text-decoration: none;
+  }
+  .rank-row .owner { color: var(--text-muted); font-size: 0.8rem; }
+  .rank-row .desc {
+    color: var(--text-muted); font-size: 0.83rem;
+    margin: 2px 0 0; line-height: 1.4;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .rank-row .growth {
+    font-size: 1rem; font-weight: 700; color: var(--green);
+    text-align: right; min-width: 80px;
+  }
+  .rank-row .growth small { display: block; color: var(--text-muted); font-weight: 400; font-size: 0.7rem; }
+  .nav-tabs { border-bottom-color: var(--border); margin-bottom: 1.5rem; }
+  .nav-tabs .nav-link {
+    color: var(--text-muted); border: none; padding: 0.5rem 1rem;
+  }
+  .nav-tabs .nav-link.active {
+    background: transparent; color: var(--text);
+    border-bottom: 2px solid var(--accent);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <h1><i class="bi bi-graph-up-arrow me-2"></i>飙升榜</h1>
+  <p>按 stars 增长速度排名 —— 抓住正在崛起的项目</p>
+</div>
+
+<ul class="nav nav-tabs">
+  <li class="nav-item">
+    <a class="nav-link {% if not request.GET.tab or request.GET.tab == 'proxy' %}active{% endif %}" href="?tab=proxy">
+      <i class="bi bi-rocket-takeoff me-1"></i>新星估算
+      <small class="text-muted ms-1">{{ proxy_items|length }}</small>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if request.GET.tab == 'real' %}active{% endif %}" href="?tab=real">
+      <i class="bi bi-clock-history me-1"></i>真实增长
+      <small class="text-muted ms-1">{{ real_growth|length }}</small>
+    </a>
+  </li>
+</ul>
+
+{% if request.GET.tab == 'real' %}
+  {% if real_growth %}
+  <p class="text-muted small mb-3">
+    <i class="bi bi-info-circle me-1"></i>
+    基于本站浏览时记录的 stars 快照计算。浏览得越多，数据越准。
+  </p>
+  {% for item in real_growth %}
+  <div class="rank-row">
+    <div class="rank">{{ forloop.counter }}</div>
+    <div class="info">
+      <a href="{% url 'repo_detail' item.repo.owner_login item.repo.name %}" class="name">{{ item.repo.full_name }}</a>
+      <small class="owner ms-2">·&nbsp;{{ item.repo.stars_display }} stars
+        {% if item.repo.language %}·&nbsp;{{ item.repo.language }}{% endif %}
+      </small>
+      <p class="desc">{{ item.repo.description|default:"" }}</p>
+    </div>
+    <div class="growth">
+      +{{ item.pct }}%
+      <small>+{{ item.delta }} 在 {{ item.days }} 天</small>
+    </div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <div class="empty-state">
+    <i class="bi bi-clock-history"></i>
+    <p>真实增长数据还在积累中</p>
+    <p class="text-muted small">浏览更多项目、过几天再来，会基于 stars 快照算出实际增速</p>
+  </div>
+  {% endif %}
+{% else %}
+  {% if proxy_items %}
+  <p class="text-muted small mb-3">
+    <i class="bi bi-info-circle me-1"></i>
+    按 <strong>stars/天龄</strong> 估算日均增速，覆盖近 1 年新项目。新项目 stars 涨得快的天然排前面。
+  </p>
+  {% for item in proxy_items %}
+  <div class="rank-row">
+    <div class="rank">{{ forloop.counter }}</div>
+    <div class="info">
+      <a href="{% url 'repo_detail' item.repo.owner_login item.repo.name %}" class="name">{{ item.repo.full_name }}</a>
+      <small class="owner ms-2">·&nbsp;{{ item.repo.stars_display }} stars
+        {% if item.repo.language %}·&nbsp;{{ item.repo.language }}{% endif %}
+        ·&nbsp;{{ item.days }} 天龄
+      </small>
+      <p class="desc">{{ item.repo.description|default:"" }}</p>
+    </div>
+    <div class="growth">
+      {{ item.rate }}
+      <small>stars/天</small>
+    </div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <div class="empty-state">
+    <i class="bi bi-rocket-takeoff"></i>
+    <p>暂无数据，先去浏览一些项目把缓存预热一下</p>
+  </div>
+  {% endif %}
+{% endif %}
+
+{% endblock %}

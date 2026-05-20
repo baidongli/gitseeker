@@ -1,0 +1,70 @@
+{% extends "discovery/base.html" %}
+{% block title %}Awesome 列表 - GitSeeker{% endblock %}
+
+{% block extra_head %}
+<style>
+  .aw-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    height: 100%;
+    display: flex; flex-direction: column;
+    transition: border-color 0.15s;
+  }
+  .aw-card:hover { border-color: var(--accent); }
+  .aw-card h3 { font-size: 1rem; font-weight: 600; margin: 0 0 4px; color: var(--accent); }
+  .aw-card .owner { color: var(--text-muted); font-size: 0.8rem; margin-bottom: 0.5rem; }
+  .aw-card .desc { color: var(--text-muted); font-size: 0.85rem; line-height: 1.5; flex: 1; }
+  .aw-card .meta { color: var(--text-muted); font-size: 0.75rem; margin-top: 0.75rem; }
+  .aw-card .actions { display: flex; gap: 6px; margin-top: 0.75rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <h1><i class="bi bi-collection me-2"></i>Awesome 列表</h1>
+  <p>从社区精心维护的 awesome 列表里挖项目（首次点"抓取"会拉取 README 并解析）</p>
+</div>
+
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+  {% for al in lists %}
+  <div class="col">
+    <div class="aw-card">
+      <h3><i class="bi bi-stars me-1"></i>{{ al.title }}</h3>
+      <div class="owner">{{ al.full_name }}</div>
+      <p class="desc">{{ al.desc }}</p>
+      {% if al.fetched %}
+      <div class="meta">
+        <i class="bi bi-list-ul me-1"></i>{{ al.items_count }} 个项目
+        &nbsp;·&nbsp;
+        <i class="bi bi-clock me-1"></i>{{ al.last_fetched|timesince }}前
+      </div>
+      <div class="actions">
+        <a href="{% url 'awesome_detail' al.owner al.name %}" class="btn btn-primary btn-sm flex-fill">
+          <i class="bi bi-eye me-1"></i>查看
+        </a>
+        <form method="post" action="{% url 'awesome_refresh' al.owner al.name %}" style="flex: 0 0 auto;">
+          {% csrf_token %}
+          <button class="btn btn-outline-secondary btn-sm" title="重新抓取">
+            <i class="bi bi-arrow-clockwise"></i>
+          </button>
+        </form>
+      </div>
+      {% else %}
+      <div class="actions">
+        <form method="post" action="{% url 'awesome_refresh' al.owner al.name %}" class="flex-fill">
+          {% csrf_token %}
+          <button class="btn btn-primary btn-sm w-100">
+            <i class="bi bi-download me-1"></i>抓取
+          </button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% endblock %}

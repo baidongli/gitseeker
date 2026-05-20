@@ -1,0 +1,80 @@
+{% extends "discovery/base.html" %}
+{% block title %}主题雷达 - GitSeeker{% endblock %}
+
+{% block extra_head %}
+<style>
+  .trend-row {
+    display: flex; align-items: center; gap: 1rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 8px;
+  }
+  .trend-row .topic {
+    flex: 1; font-weight: 600;
+  }
+  .trend-row .topic a { color: var(--accent); text-decoration: none; }
+  .trend-row .counts {
+    color: var(--text-muted); font-size: 0.85rem; min-width: 200px;
+  }
+  .trend-row .growth {
+    font-size: 1rem; font-weight: 700;
+    text-align: right; min-width: 80px;
+  }
+  .growth.up { color: var(--green); }
+  .growth.down { color: var(--red); }
+  .growth.flat { color: var(--text-muted); }
+  .bar-mini {
+    display: inline-block; width: 60px; height: 8px;
+    background: var(--surface2); border-radius: 4px;
+    margin: 0 6px; vertical-align: middle; overflow: hidden;
+  }
+  .bar-mini > div { height: 100%; background: var(--accent); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+  <div>
+    <h1><i class="bi bi-broadcast me-2"></i>主题雷达</h1>
+    <p>本月 vs 上月各主题新增项目数对比 —— 发现技术潮流</p>
+  </div>
+  <form method="post" action="{% url 'trends_refresh' %}">
+    {% csrf_token %}
+    <button class="btn btn-primary btn-sm">
+      <i class="bi bi-arrow-clockwise me-1"></i>{% if trends %}重新分析{% else %}开始分析{% endif %}
+    </button>
+  </form>
+</div>
+
+{% if last_update %}
+<p class="text-muted small mb-3">
+  <i class="bi bi-clock me-1"></i>上次更新：{{ last_update|timesince }}前
+  &nbsp;·&nbsp; 共 {{ trends|length }} 个主题
+</p>
+{% endif %}
+
+{% if trends %}
+  {% for t in trends %}
+  <div class="trend-row">
+    <div class="topic">
+      <a href="{% url 'search' %}?q=topic:{{ t.topic }}">#{{ t.topic }}</a>
+    </div>
+    <div class="counts">
+      本月 <strong style="color: var(--text)">{{ t.this_month_count }}</strong>
+      <span class="bar-mini"><div style="width: {% if t.this_month_count > t.last_month_count %}100%{% else %}{% widthratio t.this_month_count t.last_month_count 100 %}%{% endif %}"></div></span>
+      上月 {{ t.last_month_count }}
+    </div>
+    <div class="growth {% if t.growth_pct > 10 %}up{% elif t.growth_pct < -10 %}down{% else %}flat{% endif %}">
+      {% if t.growth_pct > 0 %}+{% endif %}{{ t.growth_pct }}%
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+<div class="empty-state">
+  <i class="bi bi-broadcast"></i>
+  <p>还没有趋势数据，点上面的按钮开始分析</p>
+  <p class="text-muted small">会基于已浏览项目的 topics + 一组热门候选词，调用 GitHub API 统计本月 vs 上月新项目数</p>
+</div>
+{% endif %}
+
+{% endblock %}

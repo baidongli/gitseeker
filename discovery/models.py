@@ -75,3 +75,49 @@ class Setting(models.Model):
     @classmethod
     def set(cls, key, value):
         cls.objects.update_or_create(key=key, defaults={"value": value})
+
+
+class AwesomeList(models.Model):
+    full_name = models.CharField(max_length=255, unique=True)
+    title = models.CharField(max_length=255, blank=True)
+    description = models.TextField(blank=True)
+    sections = models.JSONField(default=list, blank=True)
+    items_count = models.IntegerField(default=0)
+    last_fetched = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["full_name"]
+
+    def __str__(self):
+        return self.full_name
+
+    @property
+    def owner(self):
+        return self.full_name.split("/")[0] if "/" in self.full_name else self.full_name
+
+    @property
+    def name(self):
+        return self.full_name.split("/")[1] if "/" in self.full_name else ""
+
+
+class StarSnapshot(models.Model):
+    repository = models.ForeignKey(
+        Repository, on_delete=models.CASCADE, related_name="snapshots"
+    )
+    stars = models.IntegerField()
+    captured_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-captured_at"]
+        indexes = [models.Index(fields=["repository", "captured_at"])]
+
+
+class TopicTrend(models.Model):
+    topic = models.CharField(max_length=100, unique=True)
+    this_month_count = models.IntegerField(default=0)
+    last_month_count = models.IntegerField(default=0)
+    growth_pct = models.FloatField(default=0.0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-growth_pct"]
