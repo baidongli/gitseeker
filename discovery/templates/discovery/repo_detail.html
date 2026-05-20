@@ -28,20 +28,6 @@
   }
   .detail-stats .stat strong { color: var(--text); font-weight: 600; }
 
-  .ai-summary {
-    background: linear-gradient(135deg, rgba(188, 140, 255, 0.1), rgba(88, 166, 255, 0.08));
-    border: 1px solid rgba(188, 140, 255, 0.3);
-    border-radius: 12px;
-    padding: 1rem 1.25rem;
-    margin-bottom: 1.5rem;
-  }
-  .ai-summary .label {
-    display: flex; align-items: center; gap: 6px;
-    color: var(--purple); font-size: 0.85rem; font-weight: 600;
-    margin-bottom: 6px;
-  }
-  .ai-summary .content { color: var(--text); font-size: 1rem; line-height: 1.6; margin: 0; }
-
   .section-card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -177,21 +163,6 @@
     </div>
   </div>
 </div>
-
-<!-- AI summary -->
-{% if repo.ai_summary %}
-<div class="ai-summary">
-  <div class="label">
-    <i class="bi bi-stars"></i> AI 一句话总结
-  </div>
-  <p class="content">{{ repo.ai_summary }}</p>
-</div>
-{% elif not ai_available %}
-<div class="alert alert-warning small">
-  <i class="bi bi-info-circle me-1"></i>
-  设置环境变量 <code>ANTHROPIC_API_KEY</code> 即可启用 AI 总结
-</div>
-{% endif %}
 
 <div class="row g-3">
   <!-- README -->

@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.utils.safestring import mark_safe
 
 from .models import Repository, Bookmark
-from . import github_api, ai_summary
+from . import github_api
 
 
 LANGUAGES = [
@@ -205,13 +205,6 @@ def repo_detail(request, owner, name):
     )
     similar_repos = _upsert_repos(similar_items)
 
-    if not repo.ai_summary and ai_summary.is_available() and readme_raw:
-        summary = ai_summary.summarize_repo(repo.full_name, repo.description, readme_raw)
-        if summary:
-            repo.ai_summary = summary
-            repo.ai_summary_at = timezone.now()
-            repo.save(update_fields=["ai_summary", "ai_summary_at"])
-
     bookmarked_ids = set(Bookmark.objects.values_list("repository_id", flat=True))
 
     return render(request, "discovery/repo_detail.html", {
@@ -223,5 +216,4 @@ def repo_detail(request, owner, name):
         "max_count": max_count,
         "similar_repos": similar_repos,
         "bookmarked_ids": bookmarked_ids,
-        "ai_available": ai_summary.is_available(),
     })
