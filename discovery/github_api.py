@@ -4,6 +4,8 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 from django.utils import timezone as dj_timezone
 
+from .cache import cached
+
 
 GITHUB_API = "https://api.github.com"
 BASE_HEADERS = {
@@ -57,6 +59,7 @@ def _repo_from_data(data):
     }
 
 
+@cached("search", ttl=600)
 def search_repos(query, language=None, sort="stars", order="desc", per_page=30, page=1):
     q = query
     if language:
@@ -120,6 +123,7 @@ def validate_token(token):
         return False, str(e)
 
 
+@cached("repo", ttl=1800)
 def get_repo_detail(owner, repo):
     try:
         resp = requests.get(f"{GITHUB_API}/repos/{owner}/{repo}", headers=_headers(), timeout=10)
@@ -129,6 +133,7 @@ def get_repo_detail(owner, repo):
         return None
 
 
+@cached("readme", ttl=3600)
 def get_readme(owner, repo):
     try:
         resp = requests.get(
@@ -146,6 +151,7 @@ def get_readme(owner, repo):
         return ""
 
 
+@cached("contrib", ttl=3600)
 def get_contributors(owner, repo, limit=10):
     try:
         resp = requests.get(
@@ -168,6 +174,7 @@ def get_contributors(owner, repo, limit=10):
         return []
 
 
+@cached("commits", ttl=3600)
 def get_recent_commits(owner, repo, days=30):
     """Return a list of daily commit counts for the last `days` days (oldest first)."""
     since = (datetime.now(tz=timezone.utc) - timedelta(days=days)).isoformat()
@@ -201,6 +208,7 @@ def get_recent_commits(owner, repo, days=30):
     return series
 
 
+@cached("similar", ttl=3600)
 def get_similar(repo, limit=6):
     """Find similar repos by topic and language. `repo` is a dict from _repo_from_data."""
     topics = repo.get("topics") or []

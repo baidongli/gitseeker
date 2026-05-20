@@ -123,6 +123,22 @@
   </form>
 </div>
 
+<!-- Cache management -->
+<div class="settings-card">
+  <h2><i class="bi bi-lightning-charge"></i>API 缓存</h2>
+  <p class="desc">
+    搜索结果缓存 10 分钟、详情页内容缓存 30 分钟–1 小时，
+    显著加快二次访问速度并节省 API 额度
+  </p>
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="clear_cache">
+    <button type="submit" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-clockwise me-1"></i>清空缓存（强制刷新所有数据）
+    </button>
+  </form>
+</div>
+
 <!-- How to get token -->
 <div class="settings-card">
   <h2><i class="bi bi-info-circle"></i>如何创建 Token</h2>

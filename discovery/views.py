@@ -10,7 +10,7 @@ from django.utils import timezone
 from django.utils.safestring import mark_safe
 
 from .models import Repository, Bookmark, Setting
-from . import github_api
+from . import github_api, cache as cache_mod
 
 
 RECENT_VIEWS_MAX = 20
@@ -214,6 +214,10 @@ def settings_page(request):
         if action == "clear":
             Setting.set("github_token", "")
             messages.success(request, "Token 已清除")
+            return redirect("settings")
+        if action == "clear_cache":
+            cache_mod.clear_all()
+            messages.success(request, "API 缓存已清空，下次请求会重新拉取")
             return redirect("settings")
         if action == "test":
             token = request.POST.get("token", "").strip()
