@@ -20,7 +20,7 @@
             <img src="{{ repo.owner_avatar }}" alt="" class="owner-avatar">
             {{ repo.owner_login }}
           </div>
-          <a href="{{ repo.html_url }}" target="_blank" rel="noopener" class="repo-name">{{ repo.name }}</a>
+          <a href="{% url 'repo_detail' repo.owner_login repo.name %}" class="repo-name">{{ repo.name }}</a>
         </div>
         <form method="post" action="{% url 'delete_bookmark' repo.id %}">
           {% csrf_token %}

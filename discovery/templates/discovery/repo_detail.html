@@ -1,0 +1,257 @@
+{% extends "discovery/base.html" %}
+{% load discovery_extras %}
+{% block title %}{{ repo.full_name }} - GitSeeker{% endblock %}
+
+{% block extra_head %}
+<style>
+  .detail-header {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .detail-header .owner-row {
+    display: flex; align-items: center; gap: 8px;
+    color: var(--text-muted); font-size: 0.9rem; margin-bottom: 4px;
+  }
+  .detail-header .owner-row img {
+    width: 24px; height: 24px; border-radius: 50%;
+  }
+  .detail-header h1 { font-size: 1.6rem; margin: 0 0 0.5rem; word-break: break-word; }
+  .detail-header h1 a { color: var(--accent); }
+  .detail-header .desc { color: var(--text-muted); margin: 0.5rem 0 1rem; line-height: 1.6; }
+  .detail-stats { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+  .detail-stats .stat {
+    display: flex; align-items: center; gap: 6px;
+    color: var(--text-muted); font-size: 0.9rem;
+  }
+  .detail-stats .stat strong { color: var(--text); font-weight: 600; }
+
+  .ai-summary {
+    background: linear-gradient(135deg, rgba(188, 140, 255, 0.1), rgba(88, 166, 255, 0.08));
+    border: 1px solid rgba(188, 140, 255, 0.3);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  .ai-summary .label {
+    display: flex; align-items: center; gap: 6px;
+    color: var(--purple); font-size: 0.85rem; font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .ai-summary .content { color: var(--text); font-size: 1rem; line-height: 1.6; margin: 0; }
+
+  .section-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  .section-card h3 {
+    font-size: 1rem; font-weight: 600; margin: 0 0 1rem;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  /* README styling */
+  .readme-body { color: var(--text); line-height: 1.7; font-size: 0.95rem; }
+  .readme-body h1, .readme-body h2, .readme-body h3,
+  .readme-body h4, .readme-body h5, .readme-body h6 {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.3em; margin: 1.5em 0 0.8em;
+  }
+  .readme-body h1 { font-size: 1.6em; }
+  .readme-body h2 { font-size: 1.3em; }
+  .readme-body h3 { font-size: 1.1em; }
+  .readme-body code {
+    background: var(--surface2); padding: 2px 6px;
+    border-radius: 4px; font-size: 0.85em; color: var(--orange);
+  }
+  .readme-body pre {
+    background: var(--bg); border: 1px solid var(--border);
+    padding: 1rem; border-radius: 6px; overflow-x: auto;
+  }
+  .readme-body pre code { background: transparent; padding: 0; color: var(--text); }
+  .readme-body a { color: var(--accent); }
+  .readme-body table { border-collapse: collapse; margin: 1em 0; }
+  .readme-body th, .readme-body td {
+    border: 1px solid var(--border); padding: 6px 12px;
+  }
+  .readme-body th { background: var(--surface2); }
+  .readme-body img { max-width: 100%; height: auto; }
+  .readme-body blockquote {
+    border-left: 3px solid var(--border);
+    padding-left: 1em; color: var(--text-muted); margin-left: 0;
+  }
+  .readme-body ul, .readme-body ol { padding-left: 1.5em; }
+
+  /* Commit chart */
+  .commit-chart {
+    display: flex; align-items: flex-end; gap: 2px;
+    height: 60px; margin-bottom: 8px;
+  }
+  .commit-bar {
+    flex: 1; background: var(--green); min-height: 2px;
+    border-radius: 2px 2px 0 0; transition: opacity 0.15s;
+  }
+  .commit-bar.zero { background: var(--surface2); }
+  .commit-bar:hover { opacity: 0.7; }
+
+  /* Contributor list */
+  .contributor {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 0; font-size: 0.85rem;
+  }
+  .contributor img {
+    width: 28px; height: 28px; border-radius: 50%;
+  }
+  .contributor .login { flex: 1; color: var(--text); }
+  .contributor .count { color: var(--text-muted); font-size: 0.8rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{% if error %}
+<div class="empty-state">
+  <i class="bi bi-exclamation-circle"></i>
+  <p>{{ error }}</p>
+  <a href="{% url 'index' %}" class="btn btn-primary mt-2">回首页</a>
+</div>
+{% else %}
+
+<!-- Header -->
+<div class="detail-header">
+  <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+    <div style="flex: 1; min-width: 250px;">
+      <div class="owner-row">
+        <img src="{{ repo.owner_avatar }}" alt="">
+        {{ repo.owner_login }}
+      </div>
+      <h1>
+        <a href="{{ repo.html_url }}" target="_blank" rel="noopener">
+          {{ repo.name }} <i class="bi bi-box-arrow-up-right" style="font-size: 0.8em;"></i>
+        </a>
+      </h1>
+      {% if repo.description %}
+      <p class="desc">{{ repo.description }}</p>
+      {% endif %}
+      {% if repo.topics %}
+      <div class="d-flex flex-wrap gap-1 mb-3">
+        {% for topic in repo.topics %}
+        <span class="topic-badge">{{ topic }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <div class="detail-stats">
+        {% if repo.language %}
+        <span class="stat">
+          <span class="lang-dot" style="background: {{ repo.language|lang_color }}"></span>
+          {{ repo.language }}
+        </span>
+        {% endif %}
+        <span class="stat stars-count">
+          <i class="bi bi-star-fill"></i> <strong>{{ repo.stars_display }}</strong>
+        </span>
+        <span class="stat">
+          <i class="bi bi-diagram-2"></i> <strong>{{ repo.forks }}</strong> Forks
+        </span>
+        <span class="stat">
+          <i class="bi bi-eye"></i> <strong>{{ repo.watchers }}</strong> Watchers
+        </span>
+        <span class="stat">
+          <i class="bi bi-exclamation-circle"></i> <strong>{{ repo.open_issues }}</strong> Issues
+        </span>
+      </div>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+      <button class="bookmark-btn {% if repo.id in bookmarked_ids %}active{% endif %}"
+              data-url="{% url 'toggle_bookmark' repo.id %}"
+              style="font-size: 1.5rem;">
+        <i class="bi {% if repo.id in bookmarked_ids %}bi-bookmark-fill{% else %}bi-bookmark{% endif %}"></i>
+      </button>
+      <a href="{{ repo.html_url }}" target="_blank" rel="noopener" class="btn btn-primary">
+        <i class="bi bi-github me-1"></i>查看仓库
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- AI summary -->
+{% if repo.ai_summary %}
+<div class="ai-summary">
+  <div class="label">
+    <i class="bi bi-stars"></i> AI 一句话总结
+  </div>
+  <p class="content">{{ repo.ai_summary }}</p>
+</div>
+{% elif not ai_available %}
+<div class="alert alert-warning small">
+  <i class="bi bi-info-circle me-1"></i>
+  设置环境变量 <code>ANTHROPIC_API_KEY</code> 即可启用 AI 总结
+</div>
+{% endif %}
+
+<div class="row g-3">
+  <!-- README -->
+  <div class="col-lg-8">
+    <div class="section-card">
+      <h3><i class="bi bi-file-text"></i> README</h3>
+      {% if readme_html %}
+      <div class="readme-body">{{ readme_html }}</div>
+      {% else %}
+      <p class="text-muted">该项目没有 README，或获取失败</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="col-lg-4">
+    <!-- Commit activity -->
+    <div class="section-card">
+      <h3><i class="bi bi-activity"></i> 近 30 天活跃度</h3>
+      <div class="commit-chart">
+        {% for day in commit_series %}
+        <div class="commit-bar {% if day.count == 0 %}zero{% endif %}"
+             style="height: {% if day.count %}{% widthratio day.count max_count 100 %}{% else %}0{% endif %}%"
+             title="{{ day.date }}: {{ day.count }} commits"></div>
+        {% endfor %}
+      </div>
+      <p class="text-muted small mb-0">
+        共 <strong style="color: var(--text)">{{ total_commits }}</strong> 次提交（最近 30 天）
+      </p>
+    </div>
+
+    <!-- Contributors -->
+    <div class="section-card">
+      <h3><i class="bi bi-people"></i> 主要贡献者</h3>
+      {% if contributors %}
+      {% for c in contributors %}
+      <a href="{{ c.html_url }}" target="_blank" rel="noopener" class="contributor text-decoration-none">
+        <img src="{{ c.avatar_url }}" alt="">
+        <span class="login">{{ c.login }}</span>
+        <span class="count">{{ c.contributions }}</span>
+      </a>
+      {% endfor %}
+      {% else %}
+      <p class="text-muted small mb-0">暂无数据</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Similar projects -->
+{% if similar_repos %}
+<div class="section-card">
+  <h3><i class="bi bi-collection"></i> 相似项目</h3>
+  <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+    {% for repo in similar_repos %}
+      {% include "discovery/_repo_card.html" %}
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}

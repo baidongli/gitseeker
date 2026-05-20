@@ -1,11 +1,13 @@
+import markdown as md
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.contrib import messages
 from django.utils import timezone
+from django.utils.safestring import mark_safe
 
 from .models import Repository, Bookmark
-from . import github_api
+from . import github_api, ai_summary
 
 
 LANGUAGES = [
@@ -161,3 +163,65 @@ def delete_bookmark(request, repo_id):
     repo = get_object_or_404(Repository, id=repo_id)
     Bookmark.objects.filter(repository=repo).delete()
     return redirect("bookmarks")
+
+
+def repo_detail(request, owner, name):
+    full_name = f"{owner}/{name}"
+    repo = Repository.objects.filter(full_name__iexact=full_name).first()
+
+    data = github_api.get_repo_detail(owner, name)
+    if data:
+        repo, _ = Repository.objects.update_or_create(
+            github_id=data["github_id"],
+            defaults={**data, "cached_at": timezone.now()},
+        )
+
+    if not repo:
+        return render(request, "discovery/repo_detail.html", {"error": "项目未找到"})
+
+    readme_raw = github_api.get_readme(owner, name)
+    readme_html = ""
+    if readme_raw:
+        readme_html = mark_safe(
+            md.markdown(
+                readme_raw,
+                extensions=["fenced_code", "tables", "nl2br", "toc"],
+                output_format="html5",
+            )
+        )
+
+    contributors = github_api.get_contributors(owner, name, limit=10)
+    commit_series = github_api.get_recent_commits(owner, name, days=30)
+    total_commits = sum(d["count"] for d in commit_series)
+    max_count = max((d["count"] for d in commit_series), default=1) or 1
+
+    similar_items = github_api.get_similar(
+        {
+            "github_id": repo.github_id,
+            "topics": repo.topics,
+            "language": repo.language,
+        },
+        limit=6,
+    )
+    similar_repos = _upsert_repos(similar_items)
+
+    if not repo.ai_summary and ai_summary.is_available() and readme_raw:
+        summary = ai_summary.summarize_repo(repo.full_name, repo.description, readme_raw)
+        if summary:
+            repo.ai_summary = summary
+            repo.ai_summary_at = timezone.now()
+            repo.save(update_fields=["ai_summary", "ai_summary_at"])
+
+    bookmarked_ids = set(Bookmark.objects.values_list("repository_id", flat=True))
+
+    return render(request, "discovery/repo_detail.html", {
+        "repo": repo,
+        "readme_html": readme_html,
+        "contributors": contributors,
+        "commit_series": commit_series,
+        "total_commits": total_commits,
+        "max_count": max_count,
+        "similar_repos": similar_repos,
+        "bookmarked_ids": bookmarked_ids,
+        "ai_available": ai_summary.is_available(),
+    })

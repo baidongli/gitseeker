@@ -7,7 +7,7 @@
           <img src="{{ repo.owner_avatar }}" alt="" class="owner-avatar">
           {{ repo.owner_login }}
         </div>
-        <a href="{{ repo.html_url }}" target="_blank" rel="noopener" class="repo-name">{{ repo.name }}</a>
+        <a href="{% url 'repo_detail' repo.owner_login repo.name %}" class="repo-name">{{ repo.name }}</a>
       </div>
       <button class="bookmark-btn {% if repo.id in bookmarked_ids %}active{% endif %}"
               data-url="{% url 'toggle_bookmark' repo.id %}"

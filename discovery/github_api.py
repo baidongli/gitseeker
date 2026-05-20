@@ -1,4 +1,6 @@
+import base64
 import requests
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 from django.utils import timezone as dj_timezone
 
@@ -80,3 +82,102 @@ def get_repo_detail(owner, repo):
         return _repo_from_data(resp.json())
     except Exception as e:
         return None
+
+
+def get_readme(owner, repo):
+    try:
+        resp = requests.get(
+            f"{GITHUB_API}/repos/{owner}/{repo}/readme",
+            headers=HEADERS,
+            timeout=10,
+        )
+        if resp.status_code == 404:
+            return ""
+        resp.raise_for_status()
+        data = resp.json()
+        content = base64.b64decode(data["content"]).decode("utf-8", errors="replace")
+        return content
+    except Exception:
+        return ""
+
+
+def get_contributors(owner, repo, limit=10):
+    try:
+        resp = requests.get(
+            f"{GITHUB_API}/repos/{owner}/{repo}/contributors",
+            headers=HEADERS,
+            params={"per_page": limit},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        return [
+            {
+                "login": c["login"],
+                "avatar_url": c.get("avatar_url", ""),
+                "html_url": c.get("html_url", ""),
+                "contributions": c.get("contributions", 0),
+            }
+            for c in resp.json()
+        ]
+    except Exception:
+        return []
+
+
+def get_recent_commits(owner, repo, days=30):
+    """Return a list of daily commit counts for the last `days` days (oldest first)."""
+    since = (datetime.now(tz=timezone.utc) - timedelta(days=days)).isoformat()
+    try:
+        resp = requests.get(
+            f"{GITHUB_API}/repos/{owner}/{repo}/commits",
+            headers=HEADERS,
+            params={"since": since, "per_page": 100},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        commits = resp.json()
+    except Exception:
+        return []
+
+    counts = Counter()
+    for c in commits:
+        date_str = c.get("commit", {}).get("author", {}).get("date", "")
+        if date_str:
+            try:
+                day = datetime.fromisoformat(date_str.replace("Z", "+00:00")).date()
+                counts[day] += 1
+            except Exception:
+                continue
+
+    today = datetime.now(tz=timezone.utc).date()
+    series = []
+    for i in range(days - 1, -1, -1):
+        day = today - timedelta(days=i)
+        series.append({"date": day.isoformat(), "count": counts.get(day, 0)})
+    return series
+
+
+def get_similar(repo, limit=6):
+    """Find similar repos by topic and language. `repo` is a dict from _repo_from_data."""
+    topics = repo.get("topics") or []
+    language = repo.get("language") or ""
+
+    if topics:
+        q = " ".join(f"topic:{t}" for t in topics[:2])
+    elif language:
+        q = "stars:>100"
+    else:
+        return []
+
+    params = {
+        "q": q + (f" language:{language}" if language else ""),
+        "sort": "stars",
+        "order": "desc",
+        "per_page": limit + 2,
+    }
+    try:
+        resp = requests.get(f"{GITHUB_API}/search/repositories", headers=HEADERS, params=params, timeout=10)
+        resp.raise_for_status()
+        items = [_repo_from_data(i) for i in resp.json().get("items", [])]
+        return [i for i in items if i["github_id"] != repo.get("github_id")][:limit]
+    except Exception:
+        return []
