@@ -34,6 +34,48 @@
   </form>
 </div>
 
+{% if fact %}
+<div class="mb-3 d-flex align-items-center gap-2"
+     style="background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--purple);
+            border-radius: 8px; padding: 0.6rem 1rem; font-size: 0.9rem;">
+  <span style="font-size: 1.2rem;">{{ fact.emoji }}</span>
+  <span style="color: var(--text-muted);">
+    <span style="color: var(--purple); font-weight: 600;">你知道吗</span> ·
+    {{ fact.text|safe }}
+  </span>
+  <a href="?refresh=1#" onclick="event.preventDefault(); location.reload();"
+     class="ms-auto text-muted small text-decoration-none" title="换一个">
+    <i class="bi bi-arrow-clockwise"></i>
+  </a>
+</div>
+{% endif %}
+
+{% if capsule %}
+<div class="mb-4" style="background: linear-gradient(135deg, rgba(210, 153, 34, 0.1), rgba(240, 136, 62, 0.06));
+                         border: 1px solid rgba(210, 153, 34, 0.3); border-radius: 12px; padding: 1rem 1.25rem;">
+  <h6 style="font-size: 0.85rem; color: var(--yellow); font-weight: 600; margin: 0 0 0.5rem;">
+    <i class="bi bi-hourglass-split me-1"></i>时间胶囊
+  </h6>
+  {% for item in capsule %}
+    {% if item.kind == "anniversary" %}
+    <p class="mb-1" style="font-size: 0.9rem;">
+      <strong>{{ item.label }}</strong> 你收藏了
+      <a href="{% url 'repo_detail' item.bookmark.repository.owner_login item.bookmark.repository.name %}">{{ item.bookmark.repository.full_name }}</a>
+      {% if item.bookmark.note %}<span class="text-muted">—— {{ item.bookmark.note }}</span>{% endif %}
+    </p>
+    {% elif item.kind == "history" %}
+    <p class="mb-1" style="font-size: 0.9rem;">
+      <strong>{{ item.years }} 年前的今天</strong> 诞生了
+      <a href="{% url 'repo_detail' item.repo.owner_login item.repo.name %}">{{ item.repo.full_name }}</a>
+      <span class="text-muted">（现在 {{ item.repo.stars_display }} ⭐）</span>
+    </p>
+    {% elif item.kind == "milestone" %}
+    <p class="mb-1" style="font-size: 0.9rem;">{{ item.text }}</p>
+    {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+
 {% if daily %}
 <div class="mb-4" style="background: linear-gradient(135deg, rgba(188, 140, 255, 0.12), rgba(88, 166, 255, 0.08));
                          border: 1px solid rgba(188, 140, 255, 0.3); border-radius: 12px; padding: 1.25rem;">

@@ -10,7 +10,7 @@ from django.utils import timezone
 from django.utils.safestring import mark_safe
 
 from .models import Repository, Bookmark, Setting, AwesomeList, StarSnapshot, TopicTrend, SharedList
-from . import github_api, cache as cache_mod, awesome, tldr as tldr_mod, recommend
+from . import github_api, cache as cache_mod, awesome, tldr as tldr_mod, recommend, funfacts
 
 
 RECENT_VIEWS_MAX = 20
@@ -80,6 +80,8 @@ def index(request):
     recent_repos = _get_recent_repos(request, limit=6)
     daily = recommend.daily_pick(seed_offset=skip_daily)
     recs = recommend.recommendations(limit=6)
+    fact = funfacts.did_you_know()
+    capsule = funfacts.time_capsule()
 
     return render(request, "discovery/index.html", {
         "repos": repos,
@@ -91,6 +93,8 @@ def index(request):
         "daily": daily,
         "skip_daily": skip_daily,
         "recommendations": recs,
+        "fact": fact,
+        "capsule": capsule,
         "error": error,
     })
 
