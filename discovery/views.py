@@ -1,7 +1,7 @@
 import markdown as md
 from collections import Counter
 from datetime import datetime, timedelta, timezone as py_timezone
-from django.db.models import Q
+from django.db.models import Q, F
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST
@@ -9,7 +9,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 
-from .models import Repository, Bookmark, Setting, AwesomeList, StarSnapshot, TopicTrend
+from .models import Repository, Bookmark, Setting, AwesomeList, StarSnapshot, TopicTrend, SharedList
 from . import github_api, cache as cache_mod, awesome, tldr as tldr_mod, recommend
 
 
@@ -442,6 +442,8 @@ def repo_detail(request, owner, name):
 
     star_chart = _build_star_chart(repo)
 
+    heatmap = _build_heatmap(github_api.get_commit_activity_year(owner, name))
+
     contributors = github_api.get_contributors(owner, name, limit=10)
     commit_series = github_api.get_recent_commits(owner, name, days=30)
     total_commits = sum(d["count"] for d in commit_series)
@@ -469,7 +471,20 @@ def repo_detail(request, owner, name):
         "similar_repos": similar_repos,
         "bookmarked_ids": bookmarked_ids,
         "star_chart": star_chart,
+        "heatmap": heatmap,
     })
+
+
+def _build_heatmap(weeks):
+    if not weeks:
+        return None
+    max_count = max((d["count"] for w in weeks for d in w["days"]), default=0)
+    total = sum(w["total"] for w in weeks)
+    return {
+        "weeks": weeks,
+        "max": max_count,
+        "total": total,
+    }
 
 
 def _build_star_chart(repo):
@@ -813,3 +828,163 @@ def import_export(request):
 def profile(request):
     data = recommend.taste_profile()
     return render(request, "discovery/profile.html", {"p": data})
+
+
+import secrets
+
+
+def feed(request):
+    bms = list(
+        Bookmark.objects
+        .select_related("repository")
+        .order_by("-created_at")[:25]
+    )
+
+    events = []
+    for bm in bms:
+        repo = bm.repository
+        releases = github_api.get_releases(repo.owner_login, repo.name, limit=3)
+        for rel in releases:
+            if not rel.get("published_at"):
+                continue
+            events.append({
+                "kind": "release",
+                "at": rel["published_at"],
+                "repo": repo,
+                "title": rel["name"] or rel["tag_name"],
+                "url": rel["html_url"],
+                "prerelease": rel["prerelease"],
+                "body": rel["body"],
+            })
+
+        commits = github_api.get_recent_commits(repo.owner_login, repo.name, days=14)
+        total_2w = sum(d["count"] for d in commits)
+        if total_2w > 0:
+            last_active = None
+            for day in reversed(commits):
+                if day["count"] > 0:
+                    last_active = day["date"]
+                    break
+            events.append({
+                "kind": "activity",
+                "at": timezone.now(),
+                "repo": repo,
+                "commits_2w": total_2w,
+                "last_active": last_active,
+            })
+
+    events.sort(key=lambda e: e["at"], reverse=True)
+    bookmarked_ids = set(bm.repository_id for bm in bms)
+
+    return render(request, "discovery/feed.html", {
+        "events": events[:50],
+        "bookmark_count": len(bms),
+        "bookmarked_ids": bookmarked_ids,
+    })
+
+
+def hot(request):
+    from_date = (datetime.now(tz=py_timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
+    new_burst = github_api.search_repos(
+        query=f"created:>{from_date} stars:>=50",
+        sort="stars",
+        per_page=20,
+    )
+    new_repos = _upsert_repos(new_burst.get("items", []))
+
+    snap_cutoff = timezone.now() - timedelta(days=2)
+    repos_with_snaps = (
+        Repository.objects
+        .filter(snapshots__captured_at__lte=snap_cutoff)
+        .distinct()
+    )
+    surges = []
+    for repo in repos_with_snaps[:300]:
+        snaps = list(repo.snapshots.order_by("-captured_at"))
+        if len(snaps) < 2:
+            continue
+        latest = snaps[0]
+        baseline = None
+        for s in snaps:
+            if (latest.captured_at - s.captured_at).total_seconds() >= 18 * 3600:
+                baseline = s
+                break
+        if not baseline:
+            continue
+        delta = latest.stars - baseline.stars
+        hours = (latest.captured_at - baseline.captured_at).total_seconds() / 3600
+        if delta < 5:
+            continue
+        surges.append({
+            "repo": repo,
+            "delta": delta,
+            "hours": round(hours, 1),
+            "rate": round(delta / max(hours, 1), 2),
+        })
+    surges.sort(key=lambda x: x["delta"], reverse=True)
+    surges = surges[:20]
+
+    bookmarked_ids = set(Bookmark.objects.values_list("repository_id", flat=True))
+    return render(request, "discovery/hot.html", {
+        "new_repos": new_repos,
+        "surges": surges,
+        "bookmarked_ids": bookmarked_ids,
+        "error": new_burst.get("error"),
+    })
+
+
+def og_image(request, owner, name):
+    from django.core.cache import cache
+    from . import og as og_mod
+
+    cache_key = f"og:{owner}/{name}"
+    cached = cache.get(cache_key)
+    if cached:
+        return HttpResponse(cached, content_type="image/png")
+
+    full_name = f"{owner}/{name}"
+    repo = Repository.objects.filter(full_name__iexact=full_name).first()
+    if not repo:
+        data = github_api.get_repo_detail(owner, name)
+        if not data:
+            return HttpResponse(status=404)
+        repo = _upsert_repos([data])[0]
+
+    png = og_mod.render_card(repo)
+    cache.set(cache_key, png, 86400)
+    return HttpResponse(png, content_type="image/png")
+
+
+@require_POST
+def share_create(request):
+    tag = request.POST.get("tag", "").strip()
+    title = request.POST.get("title", "").strip()
+    note = request.POST.get("note", "").strip()
+    token = secrets.token_urlsafe(8).replace("-", "_").replace("=", "")
+    sl = SharedList.objects.create(token=token, tag=tag, title=title or (tag or "我的收藏"), note=note)
+    return redirect("shared_list", token=sl.token)
+
+
+def shared_list(request, token):
+    sl = get_object_or_404(SharedList, token=token)
+    SharedList.objects.filter(pk=sl.pk).update(views=F("views") + 1)
+
+    qs = Bookmark.objects.select_related("repository")
+    if sl.tag:
+        qs = qs.filter(tags__contains=[sl.tag])
+    bms = list(qs)
+    return render(request, "discovery/shared_list.html", {
+        "sl": sl,
+        "bookmarks": bms,
+    })
+
+
+def share_index(request):
+    lists = SharedList.objects.all()
+    return render(request, "discovery/share_index.html", {"lists": lists})
+
+
+@require_POST
+def share_delete(request, token):
+    SharedList.objects.filter(token=token).delete()
+    return redirect("share_index")

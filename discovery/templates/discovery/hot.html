@@ -1,0 +1,80 @@
+{% extends "discovery/base.html" %}
+{% load discovery_extras %}
+{% block title %}24h 热爆 - GitSeeker{% endblock %}
+
+{% block extra_head %}
+<style>
+  .surge-row {
+    display: flex; align-items: center; gap: 1rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 8px;
+  }
+  .surge-row .info { flex: 1; min-width: 0; }
+  .surge-row .name {
+    color: var(--accent); text-decoration: none; font-weight: 600;
+  }
+  .surge-row .desc {
+    color: var(--text-muted); font-size: 0.83rem; margin: 2px 0 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .surge-row .delta {
+    font-size: 1.1rem; font-weight: 700; color: var(--orange);
+    text-align: right; min-width: 90px;
+  }
+  .surge-row .delta small {
+    display: block; color: var(--text-muted); font-weight: 400; font-size: 0.7rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <h1><i class="bi bi-fire text-danger me-2"></i>24h 热爆</h1>
+  <p>过去一天内 stars 涨得最猛的项目 —— 抓住下一个爆款</p>
+</div>
+
+{% if error %}
+<div class="alert alert-warning">
+  <i class="bi bi-exclamation-triangle me-2"></i>{{ error }}
+</div>
+{% endif %}
+
+<h5 class="mb-3" style="font-size: 0.95rem; color: var(--text-muted);">
+  <i class="bi bi-rocket-takeoff me-1"></i>24h 内新发布且爆款
+</h5>
+{% if new_repos %}
+<div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3 mb-4">
+  {% for repo in new_repos %}
+    {% include "discovery/_repo_card.html" %}
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-muted small">暂无符合条件的新项目</p>
+{% endif %}
+
+<h5 class="mb-3 mt-4" style="font-size: 0.95rem; color: var(--text-muted);">
+  <i class="bi bi-graph-up-arrow me-1"></i>缓存内 stars 突涨（18-24h 间）
+</h5>
+{% if surges %}
+{% for item in surges %}
+<div class="surge-row">
+  <img src="{{ item.repo.owner_avatar }}" alt="" style="width: 32px; height: 32px; border-radius: 50%;">
+  <div class="info">
+    <a href="{% url 'repo_detail' item.repo.owner_login item.repo.name %}" class="name">{{ item.repo.full_name }}</a>
+    <small class="text-muted">·&nbsp;现 {{ item.repo.stars_display }} stars
+      {% if item.repo.language %}·&nbsp;{{ item.repo.language }}{% endif %}
+    </small>
+    <p class="desc">{{ item.repo.description|default:"" }}</p>
+  </div>
+  <div class="delta">
+    +{{ item.delta }}
+    <small>{{ item.rate }}/h · {{ item.hours }}h</small>
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<p class="text-muted small">还没有足够的 stars 快照数据。继续浏览项目，过几天再来。</p>
+{% endif %}
+
+{% endblock %}

@@ -146,11 +146,23 @@
     </form>
 
     {% if query or tag_filter %}
-    <p class="text-muted small mb-3">
-      {% if tag_filter %}分组 <strong>{{ tag_filter }}</strong> · {% endif %}
-      {% if query %}搜索 "<strong>{{ query }}</strong>" · {% endif %}
-      命中 {{ bookmarks|length }} 个
-    </p>
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+      <p class="text-muted small mb-0">
+        {% if tag_filter %}分组 <strong>{{ tag_filter }}</strong> · {% endif %}
+        {% if query %}搜索 "<strong>{{ query }}</strong>" · {% endif %}
+        命中 {{ bookmarks|length }} 个
+      </p>
+      {% if tag_filter %}
+      <form method="post" action="{% url 'share_create' %}">
+        {% csrf_token %}
+        <input type="hidden" name="tag" value="{{ tag_filter }}">
+        <input type="hidden" name="title" value="#{{ tag_filter }} 收藏">
+        <button class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-share me-1"></i>创建分享链接
+        </button>
+      </form>
+      {% endif %}
+    </div>
     {% endif %}
 
     {% if bookmarks %}

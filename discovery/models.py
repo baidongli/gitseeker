@@ -122,3 +122,18 @@ class TopicTrend(models.Model):
 
     class Meta:
         ordering = ["-growth_pct"]
+
+
+class SharedList(models.Model):
+    token = models.CharField(max_length=32, unique=True)
+    tag = models.CharField(max_length=50, blank=True)
+    title = models.CharField(max_length=255, blank=True)
+    note = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    views = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.title or self.tag} ({self.token})"

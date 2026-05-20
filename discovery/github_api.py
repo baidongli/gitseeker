@@ -224,6 +224,64 @@ def get_recent_commits(owner, repo, days=30):
     return series
 
 
+@cached("releases", ttl=3600)
+def get_releases(owner, repo, limit=5):
+    try:
+        resp = requests.get(
+            f"{GITHUB_API}/repos/{owner}/{repo}/releases",
+            headers=_headers(),
+            params={"per_page": limit},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        return [
+            {
+                "tag_name": r.get("tag_name", ""),
+                "name": r.get("name") or r.get("tag_name", ""),
+                "html_url": r.get("html_url", ""),
+                "published_at": _parse_dt(r.get("published_at")),
+                "prerelease": r.get("prerelease", False),
+                "body": (r.get("body") or "")[:500],
+            }
+            for r in resp.json()
+            if not r.get("draft")
+        ]
+    except Exception:
+        return []
+
+
+@cached("activity_year", ttl=21600)
+def get_commit_activity_year(owner, repo):
+    """Return 52 weeks of daily commit counts via /stats/commit_activity.
+    Returns [] if GitHub is still computing (202) or on error."""
+    try:
+        resp = requests.get(
+            f"{GITHUB_API}/repos/{owner}/{repo}/stats/commit_activity",
+            headers=_headers(),
+            timeout=15,
+        )
+        if resp.status_code == 202:
+            return []
+        resp.raise_for_status()
+        data = resp.json()
+        weeks = []
+        for week in data:
+            ts = week.get("week", 0)
+            days = week.get("days", [0] * 7)
+            week_start = datetime.fromtimestamp(ts, tz=timezone.utc).date()
+            weeks.append({
+                "start": week_start.isoformat(),
+                "days": [
+                    {"date": (week_start + timedelta(days=i)).isoformat(), "count": c}
+                    for i, c in enumerate(days)
+                ],
+                "total": sum(days),
+            })
+        return weeks
+    except Exception:
+        return []
+
+
 @cached("similar", ttl=3600)
 def get_similar(repo, limit=6):
     """Find similar repos by topic and language. `repo` is a dict from _repo_from_data."""

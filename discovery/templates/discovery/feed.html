@@ -1,0 +1,97 @@
+{% extends "discovery/base.html" %}
+{% load discovery_extras %}
+{% block title %}关注 Feed - GitSeeker{% endblock %}
+
+{% block extra_head %}
+<style>
+  .event {
+    display: flex; gap: 1rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 10px;
+  }
+  .event .icon {
+    flex: 0 0 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; background: var(--surface2);
+  }
+  .event .icon.release { background: rgba(63, 185, 80, 0.15); color: var(--green); }
+  .event .icon.activity { background: rgba(88, 166, 255, 0.15); color: var(--accent); }
+  .event .body { flex: 1; min-width: 0; }
+  .event .head { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .event .repo-name { color: var(--accent); text-decoration: none; font-weight: 600; }
+  .event .time { color: var(--text-muted); font-size: 0.75rem; }
+  .event .title {
+    font-size: 0.95rem; color: var(--text);
+    margin: 4px 0 0;
+  }
+  .event .desc {
+    color: var(--text-muted); font-size: 0.85rem;
+    line-height: 1.5; margin: 4px 0 0;
+    overflow: hidden; display: -webkit-box;
+    -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  }
+  .tag-mini {
+    display: inline-block; padding: 1px 8px; border-radius: 4px;
+    font-size: 0.7rem; font-weight: 600;
+  }
+  .tag-mini.release { background: rgba(63, 185, 80, 0.15); color: var(--green); }
+  .tag-mini.prerelease { background: rgba(210, 153, 34, 0.15); color: var(--yellow); }
+  .tag-mini.activity { background: rgba(88, 166, 255, 0.15); color: var(--accent); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <h1><i class="bi bi-rss me-2"></i>关注 Feed</h1>
+  <p>来自你 {{ bookmark_count }} 个收藏项目的最近动态</p>
+</div>
+
+{% if not events %}
+<div class="empty-state">
+  <i class="bi bi-bookmark"></i>
+  <p>{% if bookmark_count == 0 %}还没有收藏任何项目，去发现并收藏一些项目，这里就会有动态{% else %}你的收藏项目最近暂无 release 或活跃 commit{% endif %}</p>
+  <a href="{% url 'index' %}" class="btn btn-primary mt-2">去发现项目</a>
+</div>
+{% else %}
+
+{% for event in events %}
+{% with repo=event.repo %}
+<div class="event">
+  <div class="icon {{ event.kind }}">
+    {% if event.kind == 'release' %}<i class="bi bi-tag-fill"></i>
+    {% else %}<i class="bi bi-activity"></i>{% endif %}
+  </div>
+  <div class="body">
+    <div class="head">
+      <img src="{{ repo.owner_avatar }}" alt="" style="width: 18px; height: 18px; border-radius: 50%;">
+      <a href="{% url 'repo_detail' repo.owner_login repo.name %}" class="repo-name">{{ repo.full_name }}</a>
+      {% if event.kind == 'release' %}
+        <span class="tag-mini {% if event.prerelease %}prerelease{% else %}release{% endif %}">
+          {% if event.prerelease %}预发布{% else %}发布{% endif %}
+        </span>
+      {% else %}
+        <span class="tag-mini activity">活跃</span>
+      {% endif %}
+      <span class="time">· {{ event.at|timesince }}前</span>
+    </div>
+    {% if event.kind == 'release' %}
+      <p class="title">
+        <a href="{{ event.url }}" target="_blank" rel="noopener" class="text-decoration-none" style="color: var(--text);">
+          🏷️ {{ event.title }}
+        </a>
+      </p>
+      {% if event.body %}<p class="desc">{{ event.body }}</p>{% endif %}
+    {% else %}
+      <p class="title">
+        过去 14 天 <strong style="color: var(--green);">{{ event.commits_2w }}</strong> 次提交{% if event.last_active %}，最近一次在 {{ event.last_active }}{% endif %}
+      </p>
+    {% endif %}
+  </div>
+</div>
+{% endwith %}
+{% endfor %}
+
+{% endif %}
+
+{% endblock %}

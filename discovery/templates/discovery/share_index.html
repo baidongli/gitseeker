@@ -1,0 +1,61 @@
+{% extends "discovery/base.html" %}
+{% block title %}我的分享 - GitSeeker{% endblock %}
+
+{% block extra_head %}
+<style>
+  .sl-row {
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 8px;
+  }
+  .sl-row .title { font-weight: 600; color: var(--accent); text-decoration: none; }
+  .sl-row .url {
+    color: var(--text-muted); font-size: 0.8rem; font-family: monospace;
+    background: var(--surface2); padding: 2px 6px; border-radius: 4px; margin-left: 8px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+  <div>
+    <h1><i class="bi bi-share me-2"></i>我的分享</h1>
+    <p>已生成 {{ lists|length }} 个公开分享链接</p>
+  </div>
+  <a href="{% url 'bookmarks' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-bookmark me-1"></i>回到收藏
+  </a>
+</div>
+
+{% if lists %}
+{% for sl in lists %}
+<div class="sl-row">
+  <div>
+    <a href="{% url 'shared_list' sl.token %}" class="title">{{ sl.title }}</a>
+    {% if sl.tag %}<small class="text-muted">· #{{ sl.tag }}</small>{% endif %}
+    <span class="url">/share/{{ sl.token }}/</span>
+    <div class="text-muted small mt-1">
+      创建于 {{ sl.created_at|date:"Y-m-d" }} · {{ sl.views }} 次访问
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    <button class="btn btn-outline-secondary btn-sm" onclick="navigator.clipboard.writeText(location.origin + '{% url 'shared_list' sl.token %}'); this.innerHTML='<i class=&quot;bi bi-check2&quot;></i> 已复制';">
+      <i class="bi bi-clipboard me-1"></i>复制链接
+    </button>
+    <form method="post" action="{% url 'share_delete' sl.token %}" onsubmit="return confirm('确定删除此分享链接？');">
+      {% csrf_token %}
+      <button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></button>
+    </form>
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty-state">
+  <i class="bi bi-share"></i>
+  <p>还没有任何分享链接</p>
+  <p class="text-muted small">去 <a href="{% url 'bookmarks' %}">收藏页</a>选择一个标签后，点"创建分享链接"按钮</p>
+</div>
+{% endif %}
+
+{% endblock %}

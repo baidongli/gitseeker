@@ -84,6 +84,16 @@
   .commit-bar.zero { background: var(--surface2); }
   .commit-bar:hover { opacity: 0.7; }
 
+  /* Commit heatmap (GitHub-style) */
+  .heatmap-wrap { display: flex; gap: 2px; overflow-x: auto; padding-bottom: 4px; }
+  .heatmap-col { display: flex; flex-direction: column; gap: 2px; flex: 0 0 auto; }
+  .heat-cell { width: 10px; height: 10px; border-radius: 2px; background: var(--surface2); }
+  .heat-cell.l1 { background: rgba(63, 185, 80, 0.25); }
+  .heat-cell.l2 { background: rgba(63, 185, 80, 0.5); }
+  .heat-cell.l3 { background: rgba(63, 185, 80, 0.75); }
+  .heat-cell.l4 { background: var(--green); }
+  .heat-legend { display: flex; gap: 4px; align-items: center; font-size: 0.7rem; color: var(--text-muted); }
+
   /* Contributor list */
   .contributor {
     display: flex; align-items: center; gap: 10px;
@@ -160,6 +170,10 @@
       <a href="{{ repo.html_url }}" target="_blank" rel="noopener" class="btn btn-primary">
         <i class="bi bi-github me-1"></i>查看仓库
       </a>
+      <a href="{% url 'og_image' repo.owner_login repo.name %}" target="_blank" rel="noopener"
+         class="btn btn-outline-secondary" title="下载分享卡片">
+        <i class="bi bi-card-image"></i>
+      </a>
     </div>
   </div>
 </div>
@@ -200,6 +214,44 @@
         {% else %}
         · 持平
         {% endif %}
+      </p>
+    </div>
+    {% endif %}
+
+    <!-- Year heatmap -->
+    {% if heatmap %}
+    <div class="section-card">
+      <h3><i class="bi bi-calendar3"></i> 近一年提交热力图</h3>
+      <div class="heatmap-wrap">
+        {% for week in heatmap.weeks %}
+        <div class="heatmap-col">
+          {% for day in week.days %}
+          {% if day.count == 0 %}
+            <div class="heat-cell" title="{{ day.date }}: 0"></div>
+          {% elif day.count >= heatmap.max|add:"-1" or day.count > 20 %}
+            <div class="heat-cell l4" title="{{ day.date }}: {{ day.count }}"></div>
+          {% elif day.count > 10 %}
+            <div class="heat-cell l3" title="{{ day.date }}: {{ day.count }}"></div>
+          {% elif day.count > 5 %}
+            <div class="heat-cell l2" title="{{ day.date }}: {{ day.count }}"></div>
+          {% else %}
+            <div class="heat-cell l1" title="{{ day.date }}: {{ day.count }}"></div>
+          {% endif %}
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+      <p class="text-muted small mt-2 mb-0 d-flex justify-content-between align-items-center">
+        <span>共 <strong style="color: var(--text)">{{ heatmap.total }}</strong> 次提交</span>
+        <span class="heat-legend">
+          少
+          <span class="heat-cell"></span>
+          <span class="heat-cell l1"></span>
+          <span class="heat-cell l2"></span>
+          <span class="heat-cell l3"></span>
+          <span class="heat-cell l4"></span>
+          多
+        </span>
       </p>
     </div>
     {% endif %}

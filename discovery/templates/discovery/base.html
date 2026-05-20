@@ -204,6 +204,9 @@
             <ul class="dropdown-menu" style="background: var(--surface); border-color: var(--border);">
               <li><a class="dropdown-item" href="{% url 'gems' %}" style="color: var(--text);"><i class="bi bi-gem me-1"></i>隐藏宝石</a></li>
               <li><a class="dropdown-item" href="{% url 'rising' %}" style="color: var(--text);"><i class="bi bi-graph-up-arrow me-1"></i>飙升榜</a></li>
+              <li><a class="dropdown-item" href="{% url 'hot' %}" style="color: var(--text);"><i class="bi bi-fire me-1"></i>24h 热爆</a></li>
+              <li><a class="dropdown-item" href="{% url 'feed' %}" style="color: var(--text);"><i class="bi bi-rss me-1"></i>关注 Feed</a></li>
+              <li><hr class="dropdown-divider" style="border-color: var(--border);"></li>
               <li><a class="dropdown-item" href="{% url 'awesome_index' %}" style="color: var(--text);"><i class="bi bi-collection me-1"></i>Awesome 列表</a></li>
               <li><a class="dropdown-item" href="{% url 'trends' %}" style="color: var(--text);"><i class="bi bi-broadcast me-1"></i>主题雷达</a></li>
             </ul>
@@ -337,6 +340,8 @@
       r: "{% url 'rising' %}",
       a: "{% url 'awesome_index' %}",
       t: "{% url 'trends' %}",
+      f: "{% url 'feed' %}",
+      w: "{% url 'hot' %}",
     };
     document.addEventListener("keydown", (e) => {
       if (e.target.matches("input, textarea, select")) return;
