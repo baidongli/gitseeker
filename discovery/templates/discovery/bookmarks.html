@@ -71,9 +71,14 @@
     <h1><i class="bi bi-bookmark-heart me-2"></i>我的收藏</h1>
     <p>共 {{ total_count }} 个项目</p>
   </div>
-  <a href="{% url 'import_export' %}" class="btn btn-outline-secondary btn-sm">
-    <i class="bi bi-arrow-left-right me-1"></i>导入 / 导出
-  </a>
+  <div class="d-flex gap-2">
+    <a href="{% url 'profile' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-stars me-1"></i>挖宝品味
+    </a>
+    <a href="{% url 'import_export' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left-right me-1"></i>导入 / 导出
+    </a>
+  </div>
 </div>
 
 {% if total_count > 0 %}

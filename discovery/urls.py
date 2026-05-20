@@ -14,6 +14,7 @@ urlpatterns = [
     path("trends/", views.trends, name="trends"),
     path("trends/refresh/", views.trends_refresh, name="trends_refresh"),
     path("settings/", views.settings_page, name="settings"),
+    path("profile/", views.profile, name="profile"),
     path("io/", views.import_export, name="import_export"),
     path("io/export.json", views.export_json, name="export_json"),
     path("io/export.md", views.export_markdown, name="export_markdown"),

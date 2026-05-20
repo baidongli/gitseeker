@@ -1,0 +1,190 @@
+{% extends "discovery/base.html" %}
+{% load discovery_extras %}
+{% block title %}我的挖宝品味 - GitSeeker{% endblock %}
+
+{% block extra_head %}
+<style>
+  .p-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .p-card h3 {
+    font-size: 0.85rem; font-weight: 600;
+    color: var(--text-muted); text-transform: uppercase;
+    letter-spacing: 0.5px; margin: 0 0 0.75rem;
+  }
+
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; }
+  .big-stat {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1rem 1.25rem;
+  }
+  .big-stat .label {
+    color: var(--text-muted); font-size: 0.75rem;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .big-stat .value {
+    font-size: 1.8rem; font-weight: 700; color: var(--text);
+    line-height: 1.2; margin-top: 4px;
+  }
+  .big-stat .sub { color: var(--text-muted); font-size: 0.75rem; margin-top: 2px; }
+
+  .lang-bar {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 8px; font-size: 0.9rem;
+  }
+  .lang-bar .name { width: 100px; color: var(--text); }
+  .lang-bar .wrap { flex: 1; background: var(--surface2); height: 14px; border-radius: 7px; overflow: hidden; }
+  .lang-bar .fill { height: 100%; border-radius: 7px; transition: width 0.4s; }
+  .lang-bar .count { color: var(--text-muted); font-size: 0.8rem; width: 30px; text-align: right; }
+
+  .cloud { display: flex; flex-wrap: wrap; gap: 6px; }
+  .cloud a {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); padding: 4px 12px; border-radius: 16px;
+    font-size: 0.85rem; text-decoration: none;
+  }
+  .cloud a:hover { color: var(--accent); border-color: var(--accent); }
+  .cloud a .num { color: var(--text-muted); font-size: 0.75rem; margin-left: 4px; }
+
+  .summary-text {
+    background: linear-gradient(135deg, rgba(88, 166, 255, 0.08), rgba(63, 185, 80, 0.05));
+    border-left: 3px solid var(--accent);
+    padding: 1rem 1.25rem; border-radius: 0 8px 8px 0;
+    font-size: 0.95rem; line-height: 1.7; color: var(--text);
+  }
+  .summary-text strong { color: var(--accent); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+  <div>
+    <h1><i class="bi bi-stars me-2"></i>我的挖宝品味</h1>
+    <p>基于你的收藏数据生成的个人画像</p>
+  </div>
+  <a href="{% url 'bookmarks' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-bookmark me-1"></i>回到收藏
+  </a>
+</div>
+
+{% if not p %}
+<div class="empty-state">
+  <i class="bi bi-bookmark"></i>
+  <p>还没有收藏数据</p>
+  <p class="text-muted small">先收藏几个项目，回来再看你的品味画像</p>
+  <a href="{% url 'index' %}" class="btn btn-primary mt-2">去发现项目</a>
+</div>
+{% else %}
+
+<!-- Summary text -->
+<div class="summary-text mb-4">
+  你共收藏了 <strong>{{ p.total }}</strong> 个项目，
+  平均 stars <strong>{{ p.avg_stars }}</strong>（中位数 {{ p.median_stars }}），
+  平均年龄 <strong>{{ p.avg_age_years }}</strong> 年。
+  {% if p.top_langs %}
+  最常看的语言是 <strong>{{ p.top_langs.0.0 }}</strong>{% if p.top_langs.1 %} 和 <strong>{{ p.top_langs.1.0 }}</strong>{% endif %}。
+  {% endif %}
+  {% if p.recent_count %}
+    最近 30 天收藏了 <strong>{{ p.recent_count }}</strong> 个
+    {% if p.recent_top_langs %}（主要是
+      {% for lang, _ in p.recent_top_langs %}<strong>{{ lang }}</strong>{% if not forloop.last %}、{% endif %}{% endfor %}）{% endif %}。
+  {% endif %}
+  {% if p.first_repo %}
+    第一个收藏的项目是 <strong><a href="{% url 'repo_detail' p.first_repo.owner_login p.first_repo.name %}">{{ p.first_repo.full_name }}</a></strong>
+    （{{ p.first_bookmark|date:"Y-m-d" }}）。
+  {% endif %}
+</div>
+
+<!-- Big stats -->
+<div class="stat-grid mb-4">
+  <div class="big-stat">
+    <div class="label">总收藏数</div>
+    <div class="value">{{ p.total }}</div>
+  </div>
+  <div class="big-stat">
+    <div class="label">平均 Stars</div>
+    <div class="value">{{ p.avg_stars }}</div>
+    <div class="sub">{{ p.min_stars }}–{{ p.max_stars }}</div>
+  </div>
+  <div class="big-stat">
+    <div class="label">平均年龄</div>
+    <div class="value">{{ p.avg_age_years }}<small style="font-size:0.6em">年</small></div>
+  </div>
+  <div class="big-stat">
+    <div class="label">最近 30 天</div>
+    <div class="value">{{ p.recent_count }}</div>
+    <div class="sub">新增收藏</div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    {% if p.top_langs %}
+    <div class="p-card">
+      <h3><i class="bi bi-code-slash me-1"></i>语言偏好</h3>
+      {% for lang, count, pct in p.top_langs %}
+      <div class="lang-bar">
+        <span class="name">
+          <span class="lang-dot" style="background: {{ lang|lang_color }}"></span>
+          {{ lang }}
+        </span>
+        <div class="wrap">
+          <div class="fill" style="width: {{ pct }}%; background: {{ lang|lang_color }}"></div>
+        </div>
+        <span class="count">{{ count }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if p.top_topics %}
+    <div class="p-card">
+      <h3><i class="bi bi-tag me-1"></i>关注的主题</h3>
+      <div class="cloud">
+        {% for topic, count in p.top_topics %}
+        <a href="{% url 'search' %}?q=topic:{{ topic }}">
+          {{ topic }}<span class="num">{{ count }}</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-5">
+    {% if p.top_tags %}
+    <div class="p-card">
+      <h3><i class="bi bi-bookmark-star me-1"></i>我的分组</h3>
+      <div class="cloud">
+        {% for tag, count in p.top_tags %}
+        <a href="{% url 'bookmarks' %}?tag={{ tag }}">
+          #{{ tag }}<span class="num">{{ count }}</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if p.recent_top_topics %}
+    <div class="p-card">
+      <h3><i class="bi bi-fire me-1"></i>最近 30 天热点</h3>
+      <div class="cloud">
+        {% for topic, count in p.recent_top_topics %}
+        <a href="{% url 'search' %}?q=topic:{{ topic }}">
+          {{ topic }}<span class="num">{{ count }}</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endif %}
+
+{% endblock %}

@@ -10,7 +10,7 @@ from django.utils import timezone
 from django.utils.safestring import mark_safe
 
 from .models import Repository, Bookmark, Setting, AwesomeList, StarSnapshot, TopicTrend
-from . import github_api, cache as cache_mod, awesome, tldr as tldr_mod
+from . import github_api, cache as cache_mod, awesome, tldr as tldr_mod, recommend
 
 
 RECENT_VIEWS_MAX = 20
@@ -67,6 +67,7 @@ def _upsert_repos(items):
 def index(request):
     language = request.GET.get("lang", "")
     since = request.GET.get("since", "weekly")
+    skip_daily = int(request.GET.get("skip_daily", "0") or 0)
 
     result = github_api.get_trending(language=language or None, since=since)
     repos = _upsert_repos(result.get("items", []))
@@ -77,6 +78,8 @@ def index(request):
     )
 
     recent_repos = _get_recent_repos(request, limit=6)
+    daily = recommend.daily_pick(seed_offset=skip_daily)
+    recs = recommend.recommendations(limit=6)
 
     return render(request, "discovery/index.html", {
         "repos": repos,
@@ -85,6 +88,9 @@ def index(request):
         "since": since,
         "bookmarked_ids": bookmarked_ids,
         "recent_repos": recent_repos,
+        "daily": daily,
+        "skip_daily": skip_daily,
+        "recommendations": recs,
         "error": error,
     })
 
@@ -802,3 +808,8 @@ def import_export(request):
     return render(request, "discovery/import_export.html", {
         "bookmark_count": Bookmark.objects.count(),
     })
+
+
+def profile(request):
+    data = recommend.taste_profile()
+    return render(request, "discovery/profile.html", {"p": data})

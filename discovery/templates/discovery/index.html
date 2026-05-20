@@ -34,6 +34,53 @@
   </form>
 </div>
 
+{% if daily %}
+<div class="mb-4" style="background: linear-gradient(135deg, rgba(188, 140, 255, 0.12), rgba(88, 166, 255, 0.08));
+                         border: 1px solid rgba(188, 140, 255, 0.3); border-radius: 12px; padding: 1.25rem;">
+  <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-2">
+    <h5 style="font-size: 0.85rem; color: var(--purple); font-weight: 600; margin: 0;">
+      <i class="bi bi-gift me-1"></i>今日盲盒
+    </h5>
+    <a href="?skip_daily={{ skip_daily|add:1 }}" class="text-muted small text-decoration-none">
+      <i class="bi bi-shuffle me-1"></i>换一个
+    </a>
+  </div>
+  <div class="d-flex gap-3 align-items-start">
+    <img src="{{ daily.owner_avatar }}" alt="" style="width: 40px; height: 40px; border-radius: 50%;">
+    <div style="flex: 1; min-width: 0;">
+      <a href="{% url 'repo_detail' daily.owner_login daily.name %}"
+         style="color: var(--accent); font-weight: 600; font-size: 1.05rem; text-decoration: none;">
+        {{ daily.full_name }}
+      </a>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin: 4px 0; line-height: 1.5;">
+        {{ daily.readme_summary|default:daily.description|default:"暂无描述"|truncatechars:180 }}
+      </p>
+      <div class="d-flex gap-3 flex-wrap" style="font-size: 0.8rem; color: var(--text-muted);">
+        {% if daily.language %}<span><i class="bi bi-circle-fill" style="color: var(--accent); font-size: 0.5em;"></i> {{ daily.language }}</span>{% endif %}
+        <span class="stars-count"><i class="bi bi-star-fill"></i> {{ daily.stars_display }}</span>
+        <span><i class="bi bi-diagram-2"></i> {{ daily.forks }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if recommendations %}
+<div class="mb-4">
+  <h5 class="mb-3 d-flex justify-content-between align-items-center" style="font-size: 0.95rem; color: var(--text-muted);">
+    <span><i class="bi bi-heart me-1"></i>为你推荐</span>
+    <a href="{% url 'profile' %}" class="small text-muted text-decoration-none">
+      <i class="bi bi-graph-up me-1"></i>看挖宝品味
+    </a>
+  </h5>
+  <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+    {% for repo in recommendations %}
+      {% include "discovery/_repo_card.html" %}
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 {% if recent_repos %}
 <div class="mb-4">
   <h5 class="mb-3" style="font-size: 0.95rem; color: var(--text-muted);">
@@ -65,6 +112,9 @@
 {% endif %}
 
 {% if repos %}
+<h5 class="mb-3" style="font-size: 0.95rem; color: var(--text-muted);">
+  <i class="bi bi-fire me-1"></i>趋势项目
+</h5>
 <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
   {% for repo in repos %}
     {% include "discovery/_repo_card.html" %}
