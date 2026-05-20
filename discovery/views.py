@@ -1,5 +1,6 @@
 import markdown as md
 from collections import Counter
+from datetime import datetime, timedelta, timezone as py_timezone
 from django.db.models import Q
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
@@ -83,19 +84,54 @@ def index(request):
     })
 
 
+LICENSES = [
+    ("mit", "MIT"),
+    ("apache-2.0", "Apache 2.0"),
+    ("gpl-3.0", "GPL 3.0"),
+    ("bsd-3-clause", "BSD 3-Clause"),
+    ("bsd-2-clause", "BSD 2-Clause"),
+    ("mpl-2.0", "MPL 2.0"),
+    ("agpl-3.0", "AGPL 3.0"),
+    ("unlicense", "Unlicense"),
+]
+
+PUSHED_WITHIN = [
+    ("7", "最近 1 周"),
+    ("30", "最近 1 个月"),
+    ("90", "最近 3 个月"),
+    ("365", "最近 1 年"),
+]
+
+
 def search(request):
     query = request.GET.get("q", "").strip()
     language = request.GET.get("lang", "")
     sort = request.GET.get("sort", "stars")
     page = int(request.GET.get("page", 1))
 
+    min_stars = request.GET.get("min_stars", "").strip()
+    license_key = request.GET.get("license", "").strip()
+    pushed_within = request.GET.get("pushed_within", "").strip()
+    exclude_archived = request.GET.get("exclude_archived") == "on"
+
     repos = []
     total = 0
     error = None
 
     if query:
+        q = query
+        if min_stars.isdigit():
+            q += f" stars:>={min_stars}"
+        if license_key:
+            q += f" license:{license_key}"
+        if pushed_within.isdigit():
+            date_from = (datetime.now(tz=py_timezone.utc) - timedelta(days=int(pushed_within))).strftime("%Y-%m-%d")
+            q += f" pushed:>{date_from}"
+        if exclude_archived:
+            q += " archived:false"
+
         result = github_api.search_repos(
-            query=query,
+            query=q,
             language=language or None,
             sort=sort,
             per_page=20,
@@ -112,6 +148,8 @@ def search(request):
     has_next = total > page * 20
     has_prev = page > 1
 
+    has_advanced = bool(min_stars or license_key or pushed_within or exclude_archived)
+
     return render(request, "discovery/search.html", {
         "repos": repos,
         "query": query,
@@ -124,6 +162,85 @@ def search(request):
         "has_prev": has_prev,
         "bookmarked_ids": bookmarked_ids,
         "error": error,
+        "licenses": LICENSES,
+        "pushed_within_options": PUSHED_WITHIN,
+        "min_stars": min_stars,
+        "license_key": license_key,
+        "pushed_within": pushed_within,
+        "exclude_archived": exclude_archived,
+        "has_advanced": has_advanced,
+    })
+
+
+def gems(request):
+    language = request.GET.get("lang", "")
+    age = request.GET.get("age", "2")
+
+    days_active = 30
+    pushed_from = (datetime.now(tz=py_timezone.utc) - timedelta(days=days_active)).strftime("%Y-%m-%d")
+    age_years = int(age) if age.isdigit() else 2
+    created_from = (datetime.now(tz=py_timezone.utc) - timedelta(days=age_years * 365)).strftime("%Y-%m-%d")
+
+    q = f"stars:200..3000 pushed:>{pushed_from} created:>{created_from} archived:false"
+
+    result = github_api.search_repos(
+        query=q,
+        language=language or None,
+        sort="stars",
+        per_page=24,
+    )
+    repos = _upsert_repos(result.get("items", []))
+    error = result.get("error")
+
+    bookmarked_ids = set(
+        Bookmark.objects.values_list("repository_id", flat=True)
+    )
+
+    return render(request, "discovery/gems.html", {
+        "repos": repos,
+        "languages": LANGUAGES,
+        "selected_lang": language,
+        "age": age,
+        "bookmarked_ids": bookmarked_ids,
+        "error": error,
+    })
+
+
+def compare(request):
+    repo_inputs = [r.strip() for r in request.GET.getlist("repos") if r.strip()]
+    repos_data = []
+    errors = []
+
+    for r in repo_inputs[:3]:
+        if "/" not in r:
+            errors.append(f"格式错误：{r}（应为 owner/name）")
+            continue
+        owner, name = r.split("/", 1)
+        owner, name = owner.strip(), name.strip()
+        detail = github_api.get_repo_detail(owner, name)
+        if not detail:
+            errors.append(f"未找到：{r}")
+            continue
+        repo_obj = _upsert_repos([detail])[0]
+        commits = github_api.get_recent_commits(owner, name, days=30)
+        total_commits = sum(d["count"] for d in commits)
+        max_count = max((d["count"] for d in commits), default=1) or 1
+        contributors = github_api.get_contributors(owner, name, limit=5)
+        repos_data.append({
+            "repo": repo_obj,
+            "commits": commits,
+            "total_commits": total_commits,
+            "max_count": max_count,
+            "contributors": contributors,
+        })
+
+    bookmarked_ids = set(Bookmark.objects.values_list("repository_id", flat=True))
+
+    return render(request, "discovery/compare.html", {
+        "repos_data": repos_data,
+        "input_values": repo_inputs + [""] * (3 - len(repo_inputs)),
+        "errors": errors,
+        "bookmarked_ids": bookmarked_ids,
     })
 
 

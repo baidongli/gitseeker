@@ -1,0 +1,52 @@
+{% extends "discovery/base.html" %}
+{% block title %}隐藏宝石 - GitSeeker{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1><i class="bi bi-gem text-info me-2"></i>隐藏宝石</h1>
+  <p>挖掘高质量但被低估的项目（200-3000 stars · 近 30 天活跃 · 新近创建）</p>
+</div>
+
+<div class="filter-bar">
+  <form method="get" class="row g-2 align-items-center">
+    <div class="col-auto">
+      <label class="text-muted small me-1">语言</label>
+      <select name="lang" class="form-select form-select-sm d-inline-block w-auto" onchange="this.form.submit()">
+        <option value="">全部语言</option>
+        {% for lang in languages %}
+        <option value="{{ lang }}" {% if lang == selected_lang %}selected{% endif %}>{{ lang }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-auto">
+      <label class="text-muted small me-1">创建时间</label>
+      <select name="age" class="form-select form-select-sm d-inline-block w-auto" onchange="this.form.submit()">
+        <option value="1" {% if age == "1" %}selected{% endif %}>近 1 年</option>
+        <option value="2" {% if age == "2" %}selected{% endif %}>近 2 年</option>
+        <option value="3" {% if age == "3" %}selected{% endif %}>近 3 年</option>
+        <option value="5" {% if age == "5" %}selected{% endif %}>近 5 年</option>
+      </select>
+    </div>
+  </form>
+</div>
+
+{% if error %}
+<div class="alert alert-warning">
+  <i class="bi bi-exclamation-triangle me-2"></i>{{ error }}
+</div>
+{% endif %}
+
+{% if repos %}
+<div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+  {% for repo in repos %}
+    {% include "discovery/_repo_card.html" %}
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <i class="bi bi-gem"></i>
+  <p>没有找到合适的项目，调整一下筛选试试</p>
+</div>
+{% endif %}
+
+{% endblock %}

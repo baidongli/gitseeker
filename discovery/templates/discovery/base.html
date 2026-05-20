@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css">
   <style>
-    :root {
+    :root, [data-theme="dark"] {
       --bg: #0d1117;
       --surface: #161b22;
       --surface2: #21262d;
@@ -21,6 +21,21 @@
       --orange: #f0883e;
       --red: #f85149;
       --purple: #bc8cff;
+    }
+    [data-theme="light"] {
+      --bg: #ffffff;
+      --surface: #f6f8fa;
+      --surface2: #eaeef2;
+      --border: #d1d9e0;
+      --text: #1f2328;
+      --text-muted: #59636e;
+      --accent: #0969da;
+      --accent-hover: #0550ae;
+      --green: #1a7f37;
+      --yellow: #9a6700;
+      --orange: #bc4c00;
+      --red: #cf222e;
+      --purple: #8250df;
     }
     body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     a { color: var(--accent); text-decoration: none; }
@@ -136,8 +151,21 @@
     /* Pagination */
     .pagination .page-link { background: var(--surface); border-color: var(--border); color: var(--text-muted); }
     .pagination .page-link:hover { background: var(--surface2); color: var(--text); }
-    .pagination .page-item.active .page-link { background: var(--accent); border-color: var(--accent); color: #000; }
+    .pagination .page-item.active .page-link { background: var(--accent); border-color: var(--accent); color: #fff; }
     .pagination .page-item.disabled .page-link { background: var(--surface); color: var(--text-muted); opacity: 0.5; }
+
+    /* kbd */
+    kbd {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); padding: 2px 6px; border-radius: 4px;
+      font-size: 0.8em; font-family: monospace;
+    }
+
+    /* Light theme tweaks */
+    [data-theme="light"] .btn-close-white { filter: invert(1); }
+    [data-theme="light"] .btn-primary { color: #fff; }
+    [data-theme="light"] .btn-primary:hover { color: #fff; }
+    [data-theme="light"] .pagination .page-item.active .page-link { color: #fff; }
   </style>
   {% block extra_head %}{% endblock %}
 </head>
@@ -167,10 +195,28 @@
               <i class="bi bi-compass"></i>探索
             </a>
           </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'gems' %}active{% endif %}" href="{% url 'gems' %}">
+              <i class="bi bi-gem"></i>宝石
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'compare' %}active{% endif %}" href="{% url 'compare' %}">
+              <i class="bi bi-bar-chart-line"></i>对比
+            </a>
+          </li>
         </ul>
-        <a class="nav-link {% if request.resolver_match.url_name == 'bookmarks' %}active{% endif %}" href="{% url 'bookmarks' %}">
-          <i class="bi bi-bookmark-heart"></i>收藏
-        </a>
+        <div class="d-flex align-items-center gap-2">
+          <a class="nav-link {% if request.resolver_match.url_name == 'bookmarks' %}active{% endif %}" href="{% url 'bookmarks' %}">
+            <i class="bi bi-bookmark-heart"></i>收藏
+          </a>
+          <button class="btn btn-sm btn-outline-secondary" id="themeToggle" title="切换主题 (t)">
+            <i class="bi bi-moon-stars"></i>
+          </button>
+          <button class="btn btn-sm btn-outline-secondary" id="shortcutsBtn" title="快捷键 (?)">
+            <i class="bi bi-question-lg"></i>
+          </button>
+        </div>
       </div>
     </div>
   </nav>
@@ -190,8 +236,36 @@
   <footer>
     <div class="container text-center">
       数据来源 <i class="bi bi-github"></i> GitHub API &nbsp;·&nbsp; GitSeeker
+      &nbsp;·&nbsp; 按 <kbd>?</kbd> 查看快捷键
     </div>
   </footer>
+
+  <!-- Shortcuts modal -->
+  <div class="modal fade" id="shortcutsModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content" style="background: var(--surface); border: 1px solid var(--border); color: var(--text);">
+        <div class="modal-header" style="border-color: var(--border);">
+          <h5 class="modal-title"><i class="bi bi-keyboard me-2"></i>快捷键</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <table class="table table-sm" style="color: var(--text);">
+            <tbody>
+              <tr><td><kbd>/</kbd></td><td>聚焦搜索框</td></tr>
+              <tr><td><kbd>g</kbd> <kbd>h</kbd></td><td>趋势首页</td></tr>
+              <tr><td><kbd>g</kbd> <kbd>s</kbd></td><td>搜索</td></tr>
+              <tr><td><kbd>g</kbd> <kbd>e</kbd></td><td>探索</td></tr>
+              <tr><td><kbd>g</kbd> <kbd>m</kbd></td><td>隐藏宝石</td></tr>
+              <tr><td><kbd>g</kbd> <kbd>c</kbd></td><td>项目对比</td></tr>
+              <tr><td><kbd>g</kbd> <kbd>b</kbd></td><td>收藏</td></tr>
+              <tr><td><kbd>t</kbd></td><td>切换主题</td></tr>
+              <tr><td><kbd>?</kbd></td><td>显示此面板</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
   <script>
@@ -216,6 +290,61 @@
       const v = document.cookie.match("(^|;)\\s*" + name + "\\s*=\\s*([^;]+)");
       return v ? v.pop() : "";
     }
+
+    // Theme toggle
+    const themeBtn = document.getElementById("themeToggle");
+    const setTheme = (theme) => {
+      document.body.setAttribute("data-theme", theme);
+      localStorage.setItem("theme", theme);
+      themeBtn.innerHTML = theme === "light"
+        ? '<i class="bi bi-moon-stars"></i>'
+        : '<i class="bi bi-sun"></i>';
+    };
+    setTheme(localStorage.getItem("theme") || "dark");
+    themeBtn.addEventListener("click", () => {
+      const current = document.body.getAttribute("data-theme") || "dark";
+      setTheme(current === "dark" ? "light" : "dark");
+    });
+
+    // Shortcuts modal
+    const shortcutsModal = new bootstrap.Modal(document.getElementById("shortcutsModal"));
+    document.getElementById("shortcutsBtn").addEventListener("click", () => shortcutsModal.show());
+
+    // Keyboard shortcuts
+    let gPrefix = false;
+    let gTimer = null;
+    const ROUTES = {
+      h: "{% url 'index' %}",
+      s: "{% url 'search' %}",
+      e: "{% url 'explore' %}",
+      m: "{% url 'gems' %}",
+      c: "{% url 'compare' %}",
+      b: "{% url 'bookmarks' %}",
+    };
+    document.addEventListener("keydown", (e) => {
+      if (e.target.matches("input, textarea, select")) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+      if (gPrefix) {
+        gPrefix = false;
+        clearTimeout(gTimer);
+        if (ROUTES[e.key]) { e.preventDefault(); window.location = ROUTES[e.key]; }
+        return;
+      }
+      if (e.key === "g") {
+        gPrefix = true;
+        gTimer = setTimeout(() => { gPrefix = false; }, 1200);
+        return;
+      }
+      if (e.key === "/") {
+        const input = document.querySelector('input[name="q"]');
+        if (input) { e.preventDefault(); input.focus(); }
+        else window.location = "{% url 'search' %}";
+        return;
+      }
+      if (e.key === "t") { e.preventDefault(); themeBtn.click(); return; }
+      if (e.key === "?") { e.preventDefault(); shortcutsModal.show(); return; }
+    });
   </script>
   {% csrf_token %}
   {% block extra_js %}{% endblock %}
