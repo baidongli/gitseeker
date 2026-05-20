@@ -6,10 +6,25 @@ from django.utils import timezone as dj_timezone
 
 
 GITHUB_API = "https://api.github.com"
-HEADERS = {
+BASE_HEADERS = {
     "Accept": "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
 }
+
+
+def _headers():
+    headers = dict(BASE_HEADERS)
+    try:
+        from .models import Setting
+        token = Setting.get("github_token")
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+    except Exception:
+        pass
+    return headers
+
+
+HEADERS = BASE_HEADERS  # backwards-compat alias; existing call sites updated below
 
 
 def _parse_dt(s):
@@ -54,7 +69,7 @@ def search_repos(query, language=None, sort="stars", order="desc", per_page=30, 
         "page": page,
     }
     try:
-        resp = requests.get(f"{GITHUB_API}/search/repositories", headers=HEADERS, params=params, timeout=10)
+        resp = requests.get(f"{GITHUB_API}/search/repositories", headers=_headers(), params=params, timeout=10)
         resp.raise_for_status()
         data = resp.json()
         return {
@@ -75,9 +90,39 @@ def get_trending(language=None, since="weekly"):
     return search_repos(q, sort="stars", order="desc", per_page=20)
 
 
+def get_rate_limit():
+    try:
+        resp = requests.get(f"{GITHUB_API}/rate_limit", headers=_headers(), timeout=5)
+        resp.raise_for_status()
+        core = resp.json()["resources"]["core"]
+        return {
+            "limit": core["limit"],
+            "remaining": core["remaining"],
+            "reset": datetime.fromtimestamp(core["reset"], tz=timezone.utc),
+            "authenticated": core["limit"] > 100,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def validate_token(token):
+    """Return (ok: bool, login_or_error: str)."""
+    try:
+        resp = requests.get(
+            f"{GITHUB_API}/user",
+            headers={**BASE_HEADERS, "Authorization": f"Bearer {token}"},
+            timeout=5,
+        )
+        if resp.status_code == 200:
+            return True, resp.json().get("login", "(unknown)")
+        return False, f"HTTP {resp.status_code}: {resp.json().get('message', '')}"
+    except Exception as e:
+        return False, str(e)
+
+
 def get_repo_detail(owner, repo):
     try:
-        resp = requests.get(f"{GITHUB_API}/repos/{owner}/{repo}", headers=HEADERS, timeout=10)
+        resp = requests.get(f"{GITHUB_API}/repos/{owner}/{repo}", headers=_headers(), timeout=10)
         resp.raise_for_status()
         return _repo_from_data(resp.json())
     except Exception as e:
@@ -88,7 +133,7 @@ def get_readme(owner, repo):
     try:
         resp = requests.get(
             f"{GITHUB_API}/repos/{owner}/{repo}/readme",
-            headers=HEADERS,
+            headers=_headers(),
             timeout=10,
         )
         if resp.status_code == 404:
@@ -105,7 +150,7 @@ def get_contributors(owner, repo, limit=10):
     try:
         resp = requests.get(
             f"{GITHUB_API}/repos/{owner}/{repo}/contributors",
-            headers=HEADERS,
+            headers=_headers(),
             params={"per_page": limit},
             timeout=10,
         )
@@ -129,7 +174,7 @@ def get_recent_commits(owner, repo, days=30):
     try:
         resp = requests.get(
             f"{GITHUB_API}/repos/{owner}/{repo}/commits",
-            headers=HEADERS,
+            headers=_headers(),
             params={"since": since, "per_page": 100},
             timeout=10,
         )
@@ -175,7 +220,7 @@ def get_similar(repo, limit=6):
         "per_page": limit + 2,
     }
     try:
-        resp = requests.get(f"{GITHUB_API}/search/repositories", headers=HEADERS, params=params, timeout=10)
+        resp = requests.get(f"{GITHUB_API}/search/repositories", headers=_headers(), params=params, timeout=10)
         resp.raise_for_status()
         items = [_repo_from_data(i) for i in resp.json().get("items", [])]
         return [i for i in items if i["github_id"] != repo.get("github_id")][:limit]

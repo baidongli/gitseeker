@@ -55,3 +55,23 @@ class Bookmark(models.Model):
 
     def __str__(self):
         return f"Bookmark: {self.repository.full_name}"
+
+
+class Setting(models.Model):
+    key = models.CharField(max_length=64, unique=True)
+    value = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.key}"
+
+    @classmethod
+    def get(cls, key, default=""):
+        try:
+            return cls.objects.get(key=key).value
+        except cls.DoesNotExist:
+            return default
+
+    @classmethod
+    def set(cls, key, value):
+        cls.objects.update_or_create(key=key, defaults={"value": value})

@@ -9,7 +9,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 
-from .models import Repository, Bookmark
+from .models import Repository, Bookmark, Setting
 from . import github_api
 
 
@@ -203,6 +203,41 @@ def gems(request):
         "age": age,
         "bookmarked_ids": bookmarked_ids,
         "error": error,
+    })
+
+
+def settings_page(request):
+    test_result = None
+
+    if request.method == "POST":
+        action = request.POST.get("action", "save")
+        if action == "clear":
+            Setting.set("github_token", "")
+            messages.success(request, "Token 已清除")
+            return redirect("settings")
+        if action == "test":
+            token = request.POST.get("token", "").strip()
+            if not token:
+                test_result = {"ok": False, "msg": "请先填入 token"}
+            else:
+                ok, info = github_api.validate_token(token)
+                test_result = {
+                    "ok": ok,
+                    "msg": f"验证成功，账号：{info}" if ok else f"验证失败：{info}",
+                }
+        else:
+            token = request.POST.get("token", "").strip()
+            Setting.set("github_token", token)
+            messages.success(request, "Token 已保存" if token else "Token 已清除")
+            return redirect("settings")
+
+    token_saved = bool(Setting.get("github_token"))
+    rate = github_api.get_rate_limit()
+
+    return render(request, "discovery/settings.html", {
+        "token_saved": token_saved,
+        "rate": rate,
+        "test_result": test_result,
     })
 
 

@@ -210,6 +210,9 @@
           <a class="nav-link {% if request.resolver_match.url_name == 'bookmarks' %}active{% endif %}" href="{% url 'bookmarks' %}">
             <i class="bi bi-bookmark-heart"></i>收藏
           </a>
+          <a class="nav-link {% if request.resolver_match.url_name == 'settings' %}active{% endif %}" href="{% url 'settings' %}" title="设置">
+            <i class="bi bi-gear"></i>
+          </a>
           <button class="btn btn-sm btn-outline-secondary" id="themeToggle" title="切换主题 (t)">
             <i class="bi bi-moon-stars"></i>
           </button>

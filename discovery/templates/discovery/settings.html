@@ -1,0 +1,143 @@
+{% extends "discovery/base.html" %}
+{% block title %}设置 - GitSeeker{% endblock %}
+
+{% block extra_head %}
+<style>
+  .settings-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .settings-card h2 {
+    font-size: 1.1rem; font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+    margin: 0 0 0.5rem;
+  }
+  .settings-card .desc {
+    color: var(--text-muted); font-size: 0.9rem; margin: 0 0 1rem;
+  }
+  .rate-status {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 0.75rem 1rem; background: var(--surface2);
+    border-radius: 8px; font-size: 0.85rem;
+  }
+  .rate-status .num { font-size: 1.5rem; font-weight: 700; color: var(--text); }
+  .rate-status .label { color: var(--text-muted); font-size: 0.75rem; }
+  .rate-bar {
+    flex: 1; height: 8px; background: var(--surface);
+    border-radius: 4px; overflow: hidden; margin-left: 0.5rem;
+  }
+  .rate-bar .fill { height: 100%; background: var(--green); transition: width 0.3s; }
+  .rate-bar .fill.warn { background: var(--yellow); }
+  .rate-bar .fill.danger { background: var(--red); }
+
+  .token-input {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); font-family: monospace; font-size: 0.85rem;
+  }
+  .token-input:focus {
+    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.2);
+    background: var(--surface2); color: var(--text);
+  }
+  .help-list { font-size: 0.85rem; color: var(--text-muted); line-height: 1.7; padding-left: 1.2rem; }
+  .help-list code { background: var(--surface2); padding: 1px 6px; border-radius: 3px; color: var(--orange); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <h1><i class="bi bi-gear me-2"></i>设置</h1>
+  <p>配置 GitHub Token 以提高 API 限流</p>
+</div>
+
+<!-- Rate limit status -->
+<div class="settings-card">
+  <h2><i class="bi bi-speedometer2"></i>当前限流状态</h2>
+  {% if rate.error %}
+  <p class="text-muted small">无法获取限流信息：{{ rate.error }}</p>
+  {% else %}
+  <div class="rate-status">
+    <div>
+      <div class="num">{{ rate.remaining }}<span class="text-muted">/{{ rate.limit }}</span></div>
+      <div class="label">剩余次数</div>
+    </div>
+    <div class="rate-bar">
+      <div class="fill {% if rate.remaining < 10 %}danger{% elif rate.remaining < 100 %}warn{% endif %}"
+           style="width: {% widthratio rate.remaining rate.limit 100 %}%"></div>
+    </div>
+    <div>
+      <div class="label">
+        {% if rate.authenticated %}
+          <i class="bi bi-shield-check text-success"></i> 已登录
+        {% else %}
+          <i class="bi bi-person text-warning"></i> 匿名访问
+        {% endif %}
+      </div>
+      <div class="label">重置于 {{ rate.reset|timeuntil }}后</div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Token config -->
+<div class="settings-card">
+  <h2><i class="bi bi-key"></i>GitHub Token</h2>
+  <p class="desc">
+    配置 Personal Access Token 后，API 限流从 60 次/小时提升到 5000 次/小时
+  </p>
+
+  {% if token_saved %}
+  <div class="alert alert-success small d-flex justify-content-between align-items-center mb-3">
+    <span><i class="bi bi-check-circle me-1"></i>已配置 Token</span>
+    <form method="post" class="mb-0">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="clear">
+      <button type="submit" class="btn btn-sm btn-outline-danger">清除</button>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if test_result %}
+  <div class="alert alert-{% if test_result.ok %}success{% else %}warning{% endif %} small">
+    {{ test_result.msg }}
+  </div>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="mb-2">
+      <input type="password" name="token" class="form-control token-input"
+             placeholder="ghp_xxxxxxxxxxxxxxxxxxxx 或 github_pat_xxxxx" autocomplete="off">
+    </div>
+    <div class="d-flex gap-2">
+      <button type="submit" name="action" value="save" class="btn btn-primary btn-sm">
+        <i class="bi bi-save me-1"></i>保存
+      </button>
+      <button type="submit" name="action" value="test" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-check2-circle me-1"></i>测试连接
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- How to get token -->
+<div class="settings-card">
+  <h2><i class="bi bi-info-circle"></i>如何创建 Token</h2>
+  <ol class="help-list">
+    <li>访问 <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">github.com/settings/tokens</a></li>
+    <li>点击 <code>Generate new token</code> → <code>Fine-grained personal access token</code></li>
+    <li>填写名字（如 <code>gitseeker</code>），Expiration 选个合适的时长</li>
+    <li>Repository access 选 <code>Public Repositories (read-only)</code> 即可</li>
+    <li>Permissions 留默认（已经够用）</li>
+    <li>点 <code>Generate token</code>，复制生成的 token 粘贴到上面</li>
+  </ol>
+  <p class="text-muted small mb-0 mt-2">
+    <i class="bi bi-shield-lock me-1"></i>
+    Token 只用于读取公开仓库信息，存在本地 SQLite，不会上传到任何地方
+  </p>
+</div>
+
+{% endblock %}
