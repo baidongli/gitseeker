@@ -1,0 +1,24 @@
+[Unit]
+Description=GitSeeker (Django + gunicorn)
+After=network.target
+
+[Service]
+Type=simple
+# 按你的实际用户改（root 也可以但不推荐）
+User=root
+WorkingDirectory=/opt/gitseeker
+EnvironmentFile=/opt/gitseeker/.env
+# --workers 数量按 CPU 调整: 一般 (2 × CPU核数) + 1
+ExecStart=/usr/bin/gunicorn config.wsgi:application \
+    --bind 0.0.0.0:8000 \
+    --workers 2 \
+    --access-logfile - \
+    --error-logfile -
+Restart=always
+RestartSec=5
+# 让 SIGTERM 优雅退出
+KillSignal=SIGINT
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target
