@@ -9,11 +9,22 @@
         </div>
         <a href="{% url 'repo_detail' repo.owner_login repo.name %}" class="repo-name">{{ repo.name }}</a>
       </div>
-      <button class="bookmark-btn {% if repo.id in bookmarked_ids %}active{% endif %}"
-              data-url="{% url 'toggle_bookmark' repo.id %}"
-              title="收藏">
-        <i class="bi {% if repo.id in bookmarked_ids %}bi-bookmark-fill{% else %}bi-bookmark{% endif %}"></i>
-      </button>
+      <div class="d-flex align-items-center gap-2">
+        {% if repo.kind == 'app' %}
+          <span title="可下载安装" style="font-size: 0.7rem; padding: 1px 6px; border-radius: 3px; background: rgba(63, 185, 80, 0.15); color: #3fb950; font-weight: 600;">
+            <i class="bi bi-app-indicator"></i> APP
+          </span>
+        {% elif repo.kind == 'game' %}
+          <span title="游戏" style="font-size: 0.7rem; padding: 1px 6px; border-radius: 3px; background: rgba(188, 140, 255, 0.15); color: #bc8cff; font-weight: 600;">
+            <i class="bi bi-controller"></i> GAME
+          </span>
+        {% endif %}
+        <button class="bookmark-btn {% if repo.id in bookmarked_ids %}active{% endif %}"
+                data-url="{% url 'toggle_bookmark' repo.id %}"
+                title="收藏">
+          <i class="bi {% if repo.id in bookmarked_ids %}bi-bookmark-fill{% else %}bi-bookmark{% endif %}"></i>
+        </button>
+      </div>
     </div>
 
     <p class="repo-desc">{{ repo.readme_summary|default:repo.description|default:"暂无描述"|truncatechars:140 }}</p>

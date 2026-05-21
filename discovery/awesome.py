@@ -16,6 +16,13 @@ CURATED = [
     ("public-apis/public-apis", "Public APIs", "免费 API 集合"),
     ("EbookFoundation/free-programming-books", "Free Books", "免费编程书籍"),
     ("ripienaar/free-for-dev", "Free for Dev", "开发者免费服务"),
+    # 应用/游戏专项
+    ("awesome-selfhosted/awesome-selfhosted", "Self-Hosted", "替代付费 SaaS 的开源应用（金矿）"),
+    ("jaywcjlove/awesome-mac", "macOS Apps", "macOS 应用大全（中文）"),
+    ("Awesome-Windows/Awesome", "Windows Apps", "Windows 优秀应用"),
+    ("viatsko/awesome-vscode", "VSCode Extensions", "VSCode 扩展精选"),
+    ("tauri-apps/awesome-tauri", "Tauri Apps", "Tauri 跨平台桌面应用"),
+    ("godotengine/awesome-godot", "Godot Games", "Godot 游戏与资源"),
 ]
 
 

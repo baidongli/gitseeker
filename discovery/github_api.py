@@ -242,6 +242,15 @@ def get_releases(owner, repo, limit=5):
                 "published_at": _parse_dt(r.get("published_at")),
                 "prerelease": r.get("prerelease", False),
                 "body": (r.get("body") or "")[:500],
+                "assets": [
+                    {
+                        "name": a.get("name", ""),
+                        "url": a.get("browser_download_url", ""),
+                        "size": a.get("size", 0),
+                        "downloads": a.get("download_count", 0),
+                    }
+                    for a in (r.get("assets") or [])
+                ],
             }
             for r in resp.json()
             if not r.get("draft")

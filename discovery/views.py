@@ -10,7 +10,7 @@ from django.utils import timezone
 from django.utils.safestring import mark_safe
 
 from .models import Repository, Bookmark, Setting, AwesomeList, StarSnapshot, TopicTrend, SharedList
-from . import github_api, cache as cache_mod, awesome, tldr as tldr_mod, recommend, funfacts
+from . import github_api, cache as cache_mod, awesome, tldr as tldr_mod, recommend, funfacts, appstore
 
 
 RECENT_VIEWS_MAX = 20
@@ -53,9 +53,11 @@ def _upsert_repos(items):
     now = timezone.now()
     cutoff = now - timedelta(hours=12)
     for item in items:
+        defaults = {**item, "cached_at": now}
+        defaults["kind"] = appstore.detect_kind(item.get("topics") or [])
         repo, _ = Repository.objects.update_or_create(
             github_id=item["github_id"],
-            defaults={**item, "cached_at": now},
+            defaults=defaults,
         )
         repos.append(repo)
         last = repo.snapshots.order_by("-captured_at").first()
@@ -448,6 +450,9 @@ def repo_detail(request, owner, name):
 
     heatmap = _build_heatmap(github_api.get_commit_activity_year(owner, name))
 
+    releases = github_api.get_releases(owner, name, limit=5)
+    app_package = appstore.build_app_package(releases)
+
     contributors = github_api.get_contributors(owner, name, limit=10)
     commit_series = github_api.get_recent_commits(owner, name, days=30)
     total_commits = sum(d["count"] for d in commit_series)
@@ -476,6 +481,8 @@ def repo_detail(request, owner, name):
         "bookmarked_ids": bookmarked_ids,
         "star_chart": star_chart,
         "heatmap": heatmap,
+        "app_package": app_package,
+        "kind_label": appstore.KIND_LABELS.get(repo.kind) if repo.kind else None,
     })
 
 
@@ -992,3 +999,39 @@ def share_index(request):
 def share_delete(request, token):
     SharedList.objects.filter(token=token).delete()
     return redirect("share_index")
+
+
+def apps_index(request):
+    return render(request, "discovery/apps.html", {
+        "groups": appstore.grouped_categories(),
+        "kind_labels": appstore.KIND_LABELS,
+    })
+
+
+def apps_category(request, key):
+    cat = appstore.get_category(key)
+    if not cat:
+        return redirect("apps_index")
+
+    page = int(request.GET.get("page", 1))
+    result = github_api.search_repos(
+        query=cat["query"],
+        sort="stars",
+        per_page=24,
+        page=page,
+    )
+    repos = _upsert_repos(result.get("items", []))
+    total = result.get("total_count", 0)
+    bookmarked_ids = set(Bookmark.objects.values_list("repository_id", flat=True))
+
+    return render(request, "discovery/apps_category.html", {
+        "cat": cat,
+        "repos": repos,
+        "total": total,
+        "page": page,
+        "has_next": total > page * 24,
+        "has_prev": page > 1,
+        "bookmarked_ids": bookmarked_ids,
+        "kind_labels": appstore.KIND_LABELS,
+        "error": result.get("error"),
+    })

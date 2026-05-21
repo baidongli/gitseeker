@@ -1,0 +1,48 @@
+{% extends "discovery/base.html" %}
+{% block title %}{{ cat.title }} - 应用市场{% endblock %}
+{% block content %}
+
+<div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+  <div>
+    <h1><i class="bi {{ cat.icon }} me-2"></i>{{ cat.title }}</h1>
+    <p>{{ cat.desc }} · 共约 {{ total }} 个项目</p>
+  </div>
+  <a href="{% url 'apps_index' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-grid me-1"></i>所有分类
+  </a>
+</div>
+
+{% if error %}
+<div class="alert alert-warning">
+  <i class="bi bi-exclamation-triangle me-2"></i>{{ error }}
+</div>
+{% endif %}
+
+{% if repos %}
+<div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+  {% for repo in repos %}
+    {% include "discovery/_repo_card.html" %}
+  {% endfor %}
+</div>
+
+<nav class="mt-4">
+  <ul class="pagination justify-content-center">
+    <li class="page-item {% if not has_prev %}disabled{% endif %}">
+      <a class="page-link" href="?page={{ page|add:'-1' }}">
+        <i class="bi bi-chevron-left"></i> 上一页
+      </a>
+    </li>
+    <li class="page-item disabled"><span class="page-link">第 {{ page }} 页</span></li>
+    <li class="page-item {% if not has_next %}disabled{% endif %}">
+      <a class="page-link" href="?page={{ page|add:'1' }}">下一页 <i class="bi bi-chevron-right"></i></a>
+    </li>
+  </ul>
+</nav>
+{% else %}
+<div class="empty-state">
+  <i class="bi bi-inbox"></i>
+  <p>没有找到项目，可能该分类下没有符合条件的</p>
+</div>
+{% endif %}
+
+{% endblock %}

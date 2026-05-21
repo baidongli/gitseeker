@@ -84,6 +84,28 @@
   .commit-bar.zero { background: var(--surface2); }
   .commit-bar:hover { opacity: 0.7; }
 
+  /* App package */
+  .pkg-card {
+    background: linear-gradient(135deg, rgba(63, 185, 80, 0.08), rgba(88, 166, 255, 0.05));
+    border: 1px solid rgba(63, 185, 80, 0.3);
+    border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem;
+  }
+  .pkg-card h3 { font-size: 0.85rem; font-weight: 600; color: var(--green);
+                 margin: 0 0 0.5rem; text-transform: uppercase; letter-spacing: 0.5px; }
+  .pkg-version { color: var(--text); font-size: 1rem; font-weight: 600; }
+  .pkg-version a { color: var(--text); text-decoration: none; }
+  .platform-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0.75rem; }
+  .platform-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); text-decoration: none;
+    padding: 8px 14px; border-radius: 8px; font-size: 0.85rem;
+    transition: border-color 0.15s;
+  }
+  .platform-btn:hover { border-color: var(--green); color: var(--text); }
+  .platform-btn .ico { color: var(--green); font-size: 1rem; }
+  .platform-btn .size { color: var(--text-muted); font-size: 0.7rem; }
+
   /* Commit heatmap (GitHub-style) */
   .heatmap-wrap { display: flex; gap: 2px; overflow-x: auto; padding-bottom: 4px; }
   .heatmap-col { display: flex; flex-direction: column; gap: 2px; flex: 0 0 auto; }
@@ -129,6 +151,12 @@
         <a href="{{ repo.html_url }}" target="_blank" rel="noopener">
           {{ repo.name }} <i class="bi bi-box-arrow-up-right" style="font-size: 0.8em;"></i>
         </a>
+        {% if kind_label %}
+        <span style="font-size: 0.65em; padding: 2px 8px; border-radius: 4px; font-weight: 600;
+                     background: {{ kind_label.2 }}20; color: {{ kind_label.2 }}; vertical-align: middle; margin-left: 8px;">
+          <i class="bi {{ kind_label.1 }} me-1"></i>{{ kind_label.0 }}
+        </span>
+        {% endif %}
       </h1>
       {% if repo.description %}
       <p class="desc">{{ repo.description }}</p>
@@ -177,6 +205,34 @@
     </div>
   </div>
 </div>
+
+{% if app_package %}
+<div class="pkg-card">
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+      <h3><i class="bi bi-download"></i> 下载安装</h3>
+      <div class="pkg-version">
+        <a href="{{ app_package.html_url }}" target="_blank" rel="noopener">
+          {{ app_package.name }}
+        </a>
+        <small class="text-muted">· 发布于 {{ app_package.published_at|date:"Y-m-d" }}</small>
+      </div>
+    </div>
+    <span class="text-muted small">共 {{ app_package.total_assets }} 个发布文件</span>
+  </div>
+  <div class="platform-grid">
+    {% for plat_key, plat in app_package.platforms.items %}
+    <a href="{{ plat.url }}" class="platform-btn" target="_blank" rel="noopener" download>
+      <i class="bi {{ plat.icon }} ico"></i>
+      <div>
+        <div>{{ plat.label }}</div>
+        <span class="size">{{ plat.size_mb }} MB · ↓ {{ plat.downloads }}</span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
 
 <div class="row g-3">
   <!-- README -->

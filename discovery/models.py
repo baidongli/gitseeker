@@ -21,12 +21,14 @@ class Repository(models.Model):
     created_at_github = models.DateTimeField(null=True, blank=True)
     cached_at = models.DateTimeField(default=timezone.now)
     readme_summary = models.TextField(blank=True)
+    kind = models.CharField(max_length=10, blank=True)  # app | game | lib | ""
 
     class Meta:
         ordering = ["-stars"]
         indexes = [
             models.Index(fields=["language"]),
             models.Index(fields=["stars"]),
+            models.Index(fields=["kind"]),
         ]
 
     def __str__(self):
