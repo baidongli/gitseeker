@@ -1,31 +1,28 @@
-# GitSeeker 阿里云部署指南（IP + HTTP + SQLite）
+# GitSeeker 部署指南（阿里云 + 现有 Nginx + 新子域名）
 
-适用：阿里云 ECS / 轻量服务器，10 分钟搞定，无需域名和 HTTPS。
+适用场景：服务器上已经在跑别的 gunicorn 项目 + Nginx，加一个 GitSeeker 子域名。
+
+最终效果：浏览器访问 `http://gitseeker.yourdomain.com` 进入网站。
 
 ---
 
-## 第 1 步：服务器准备
+## 第 1 步：准备域名解析
 
-SSH 登录服务器：
+去你的 DNS 控制台（阿里云 / Cloudflare / 等）加一条 A 记录：
 
-```bash
-ssh root@你的服务器IP
-```
+| 主机记录 | 类型 | 值 |
+|---------|-----|-----|
+| `gitseeker` | A | 你的服务器公网 IP |
 
-确认 Python 3.9+ 已装：
-
-```bash
-python3 --version
-# 没装的话：
-# CentOS/Alibaba Linux:  yum install -y python3 python3-pip git
-# Ubuntu/Debian:         apt update && apt install -y python3 python3-pip git
-```
+等 1-5 分钟生效后，`ping gitseeker.yourdomain.com` 能解析就 OK。
 
 ---
 
 ## 第 2 步：拉代码 + 装依赖
 
 ```bash
+ssh root@你的服务器IP
+
 cd /opt
 git clone https://github.com/baidongli/gitseeker.git
 cd gitseeker
@@ -37,92 +34,89 @@ pip3 install -r requirements.txt
 ## 第 3 步：配置环境变量
 
 ```bash
-# 生成一个 SECRET_KEY
+# 生成 SECRET_KEY
 python3 -c "import secrets; print(secrets.token_urlsafe(50))"
 
-# 复制示例文件
 cp .env.example .env
 vi .env
 ```
 
-填入（举例）：
+填入：
 
 ```
 SECRET_KEY=刚才生成的那串
 DEBUG=False
-ALLOWED_HOSTS=你的服务器公网IP
+ALLOWED_HOSTS=gitseeker.yourdomain.com
+# 因为 Nginx 反代是 HTTP，这里也带 http://
+CSRF_TRUSTED_ORIGINS=http://gitseeker.yourdomain.com
 ```
 
 ---
 
-## 第 4 步：初始化
+## 第 4 步：初始化数据库 + 静态文件
 
 ```bash
-# 临时把 .env 导入当前 shell（仅本次手动操作用，systemd 不需要）
 set -a; source .env; set +a
-
-# 数据库迁移
 python3 manage.py migrate
-
-# 收集静态文件（admin 后台会用）
 python3 manage.py collectstatic --noinput
 ```
 
 ---
 
-## 第 5 步：阿里云安全组开端口
-
-控制台 → ECS → 安全组 → 入方向规则 → 添加：
-
-| 协议 | 端口 | 授权对象 |
-|------|-----|---------|
-| TCP | 8000 | 0.0.0.0/0 |
-
-如果系统装了 `firewalld`（CentOS 默认）：
+## 第 5 步：启动 Gunicorn（systemd）
 
 ```bash
-firewall-cmd --permanent --add-port=8000/tcp
-firewall-cmd --reload
-```
+# 检查 deploy/gitseeker.service 里的 User= 是否匹配你的 Nginx 用户：
+# CentOS / Alibaba Linux: User=nginx
+# Ubuntu / Debian:       User=www-data
+# Nginx 需要能读 socket，用户必须匹配
+vi deploy/gitseeker.service
 
-Ubuntu 用 `ufw`：
-
-```bash
-ufw allow 8000/tcp
-```
-
----
-
-## 第 6 步：用 gunicorn 跑起来试试
-
-```bash
-gunicorn config.wsgi:application --bind 0.0.0.0:8000
-```
-
-浏览器访问 `http://你的服务器IP:8000` —— 能看到趋势页就成功了。
-
-Ctrl+C 停掉。
-
----
-
-## 第 7 步：systemd 自启动
-
-```bash
-# 复制示例 service
 cp deploy/gitseeker.service /etc/systemd/system/
-
-# 按需修改（默认假定 /opt/gitseeker，跑在 :8000）
-vi /etc/systemd/system/gitseeker.service
-
-# 启动 + 开机自启
 systemctl daemon-reload
 systemctl enable --now gitseeker
-
-# 查看状态
 systemctl status gitseeker
-# 查看日志
-journalctl -u gitseeker -f
 ```
+
+确认 socket 已生成且 Nginx 用户可读：
+
+```bash
+ls -la /run/gitseeker/gunicorn.sock
+# srwxrwxr-x  1 nginx nginx 0 May 21 ... /run/gitseeker/gunicorn.sock
+```
+
+---
+
+## 第 6 步：配 Nginx 子域名
+
+```bash
+# 把示例 server 块加到你 Nginx 的 conf.d
+cp deploy/nginx-gitseeker.conf /etc/nginx/conf.d/gitseeker.conf
+
+# 改成你的实际子域名
+vi /etc/nginx/conf.d/gitseeker.conf
+# 把 gitseeker.example.com 改成 gitseeker.yourdomain.com
+
+# 测试配置 + 重载
+nginx -t
+systemctl reload nginx
+```
+
+---
+
+## 第 7 步：阿里云安全组（可能已开过）
+
+如果你现有的 Nginx 已经在用 80 端口，这步直接跳过。否则：
+
+控制台 → ECS → 安全组 → 入方向规则 → 协议 TCP / 端口 80 / 源 0.0.0.0/0
+
+---
+
+## 完成
+
+浏览器访问 `http://gitseeker.yourdomain.com` —— 看到趋势页就成功了。
+
+第一件事：去 **`/settings/`** 配 GitHub Token（限流 60/h → 5000/h）。
 
 ---
 
@@ -137,7 +131,7 @@ python3 manage.py collectstatic --noinput
 systemctl restart gitseeker
 ```
 
-可以做个脚本 `/opt/gitseeker/update.sh`：
+可以写成 `update.sh` 一键更新：
 
 ```bash
 #!/bin/bash
@@ -155,13 +149,19 @@ echo "✓ Deployed at $(date)"
 
 ## 备份数据
 
-数据库就是一个文件，定期复制即可：
+数据库是单个 SQLite 文件：
 
 ```bash
 cp /opt/gitseeker/db.sqlite3 ~/backups/gitseeker-$(date +%Y%m%d).sqlite3
 ```
 
-或者在 UI 里 **收藏 → 导入/导出 → 导出 JSON**。
+定时自动备份 cron：
+
+```cron
+0 3 * * * cp /opt/gitseeker/db.sqlite3 /root/backups/gitseeker-$(date +\%Y\%m\%d).sqlite3
+```
+
+或者用 UI 的 **收藏 → 导入/导出 → 导出 JSON**。
 
 ---
 
@@ -169,33 +169,44 @@ cp /opt/gitseeker/db.sqlite3 ~/backups/gitseeker-$(date +%Y%m%d).sqlite3
 
 | 问题 | 原因 | 解决 |
 |------|------|------|
-| 502 / 端口不通 | 阿里云安全组没开 / 防火墙 | 第 5 步 |
-| `DisallowedHost` 报错 | `ALLOWED_HOSTS` 没填对 | 编辑 `.env` 加上 IP，`systemctl restart gitseeker` |
-| `CSRF verification failed` | 跨域提交表单 | 把访问域名/IP 加到 `CSRF_TRUSTED_ORIGINS` （带 `http://`）|
-| admin 后台无样式 | 没跑 `collectstatic` | 第 4 步 |
-| GitHub API 限流 60/h | 没配 Token | 在网站 `/settings/` 配 GitHub PAT，限流变 5000/h |
+| 502 Bad Gateway | Nginx 没权限读 socket | 把 systemd `User=` 改成 nginx 用户（nginx 或 www-data），`systemctl restart gitseeker` |
+| 502 Bad Gateway | gunicorn 没起来 | `systemctl status gitseeker` + `journalctl -u gitseeker -n 50` |
+| 404 (Nginx) | 域名没对上 server_name | 检查 `/etc/nginx/conf.d/gitseeker.conf` 里的 `server_name` 和你访问的域名一致 |
+| `DisallowedHost` | `ALLOWED_HOSTS` 漏了 | `.env` 里加上 gitseeker.yourdomain.com，重启 |
+| `CSRF verification failed` | 没加 `CSRF_TRUSTED_ORIGINS` | `.env` 里加 `CSRF_TRUSTED_ORIGINS=http://gitseeker.yourdomain.com`，重启 |
+| admin 后台无样式 | 没跑 collectstatic | 第 4 步 |
+| GitHub API 限流 60/h | 没配 Token | UI 设置页填 GitHub PAT |
 
 ---
 
-## 进阶（可选）
+## 进阶：升级 HTTPS
 
-### 想用 80 端口直接访问（不带 :8000）
+后续想要 HTTPS（推荐！免费而且 5 分钟）：
 
-把 `deploy/gitseeker.service` 里 `--bind 0.0.0.0:8000` 改成 `--bind 0.0.0.0:80`，
-然后 `systemctl restart gitseeker`，安全组也改成放行 80。
+```bash
+# 装 certbot
+yum install -y certbot python3-certbot-nginx
+# 或: apt install -y certbot python3-certbot-nginx
 
-注意：用 80 端口必须以 root 运行，或者用 `setcap` 给 python 二进制赋权。
+# certbot 自动改 Nginx 配置 + 申请 Let's Encrypt 证书
+certbot --nginx -d gitseeker.yourdomain.com
 
-### 想加 HTTPS / 上域名
+# 自动续期已经配好了，不用管
+```
 
-那需要：
-1. 域名解析到服务器 IP
-2. 装 Nginx 反向代理 :8000
-3. 用 certbot 申请 Let's Encrypt 证书
+certbot 跑完后，浏览器访问 `https://gitseeker.yourdomain.com` 即可。
 
-写起来比较长，需要再问我。
+记得回 `.env` 把 `CSRF_TRUSTED_ORIGINS` 改成 `https://...`，重启 gitseeker。
 
-### 切到 Docker
+---
 
-`docker run -p 8000:8000 -v $(pwd)/db.sqlite3:/app/db.sqlite3 --env-file .env gitseeker:latest`
-也可以，但要先写 Dockerfile，目前没做，需要可以再问。
+## 看日志
+
+```bash
+# Gunicorn 进程日志
+journalctl -u gitseeker -f
+
+# Nginx 访问/错误日志
+tail -f /var/log/nginx/gitseeker-access.log
+tail -f /var/log/nginx/gitseeker-error.log
+```
