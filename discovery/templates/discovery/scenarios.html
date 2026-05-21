@@ -1,0 +1,61 @@
+{% extends "discovery/base.html" %}
+{% block title %}场景推荐 / 替代品 - GitSeeker{% endblock %}
+
+{% block extra_head %}
+<style>
+  .group-title {
+    font-size: 0.95rem; font-weight: 600; color: var(--text-muted);
+    margin: 1.5rem 0 0.75rem; padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .uc-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem;
+    height: 100%;
+    text-decoration: none;
+    display: flex; gap: 14px; align-items: flex-start;
+    transition: all 0.15s;
+  }
+  .uc-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    text-decoration: none;
+  }
+  .uc-card .ico {
+    flex: 0 0 44px; width: 44px; height: 44px; border-radius: 10px;
+    background: var(--surface2); display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem;
+  }
+  .uc-card .body { flex: 1; min-width: 0; }
+  .uc-card .title { font-weight: 600; color: var(--text); font-size: 0.95rem; }
+  .uc-card .desc { color: var(--text-muted); font-size: 0.8rem; line-height: 1.4; margin: 4px 0 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <h1><i class="bi bi-lightbulb me-2"></i>"我想做什么"</h1>
+  <p>从生活/工作场景出发，找对应的开源替代品</p>
+</div>
+
+{% for group_name, ucs in groups.items %}
+<h3 class="group-title">{{ group_name }}</h3>
+<div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3 mb-3">
+  {% for uc in ucs %}
+  <div class="col">
+    <a href="{% url 'scenario_detail' uc.key %}" class="uc-card">
+      <div class="ico">{{ uc.icon }}</div>
+      <div class="body">
+        <div class="title">{{ uc.title }}</div>
+        <p class="desc">{{ uc.desc }}</p>
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+{% endfor %}
+
+{% endblock %}

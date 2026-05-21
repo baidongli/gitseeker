@@ -197,10 +197,15 @@
               <i class="bi bi-compass"></i>探索
             </a>
           </li>
-          <li class="nav-item">
-            <a class="nav-link {% if 'apps' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'apps_index' %}">
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle {% if 'apps' in request.resolver_match.url_name or 'scenario' in request.resolver_match.url_name %}active{% endif %}"
+               href="#" role="button" data-bs-toggle="dropdown">
               <i class="bi bi-app-indicator"></i>应用
             </a>
+            <ul class="dropdown-menu" style="background: var(--surface); border-color: var(--border);">
+              <li><a class="dropdown-item" href="{% url 'apps_index' %}" style="color: var(--text);"><i class="bi bi-grid me-1"></i>应用市场</a></li>
+              <li><a class="dropdown-item" href="{% url 'scenarios_index' %}" style="color: var(--text);"><i class="bi bi-lightbulb me-1"></i>场景推荐 / 替代品</a></li>
+            </ul>
           </li>
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
@@ -275,6 +280,7 @@
               <tr><td><kbd>g</kbd> <kbd>s</kbd></td><td>搜索</td></tr>
               <tr><td><kbd>g</kbd> <kbd>e</kbd></td><td>探索</td></tr>
               <tr><td><kbd>g</kbd> <kbd>p</kbd></td><td>应用市场</td></tr>
+              <tr><td><kbd>g</kbd> <kbd>u</kbd></td><td>场景推荐</td></tr>
               <tr><td><kbd>g</kbd> <kbd>m</kbd></td><td>隐藏宝石</td></tr>
               <tr><td><kbd>g</kbd> <kbd>r</kbd></td><td>飙升榜</td></tr>
               <tr><td><kbd>g</kbd> <kbd>a</kbd></td><td>Awesome 列表</td></tr>
@@ -349,6 +355,7 @@
       f: "{% url 'feed' %}",
       w: "{% url 'hot' %}",
       p: "{% url 'apps_index' %}",
+      u: "{% url 'scenarios_index' %}",
     };
     document.addEventListener("keydown", (e) => {
       if (e.target.matches("input, textarea, select")) return;

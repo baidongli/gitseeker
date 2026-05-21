@@ -10,7 +10,10 @@ from django.utils import timezone
 from django.utils.safestring import mark_safe
 
 from .models import Repository, Bookmark, Setting, AwesomeList, StarSnapshot, TopicTrend, SharedList
-from . import github_api, cache as cache_mod, awesome, tldr as tldr_mod, recommend, funfacts, appstore
+from . import (
+    github_api, cache as cache_mod, awesome, tldr as tldr_mod,
+    recommend, funfacts, appstore, media, usecases as usecases_mod,
+)
 
 
 RECENT_VIEWS_MAX = 20
@@ -452,6 +455,8 @@ def repo_detail(request, owner, name):
 
     releases = github_api.get_releases(owner, name, limit=5)
     app_package = appstore.build_app_package(releases)
+    screenshots = media.extract_screenshots(readme_raw, owner, name, limit=6) if readme_raw else []
+    other_works = github_api.get_user_repos(owner, exclude_repo=name, limit=6)
 
     contributors = github_api.get_contributors(owner, name, limit=10)
     commit_series = github_api.get_recent_commits(owner, name, days=30)
@@ -483,6 +488,8 @@ def repo_detail(request, owner, name):
         "heatmap": heatmap,
         "app_package": app_package,
         "kind_label": appstore.KIND_LABELS.get(repo.kind) if repo.kind else None,
+        "screenshots": screenshots,
+        "other_works": other_works,
     })
 
 
@@ -1033,5 +1040,37 @@ def apps_category(request, key):
         "has_prev": page > 1,
         "bookmarked_ids": bookmarked_ids,
         "kind_labels": appstore.KIND_LABELS,
+        "error": result.get("error"),
+    })
+
+
+def scenarios_index(request):
+    return render(request, "discovery/scenarios.html", {
+        "groups": usecases_mod.grouped(),
+    })
+
+
+def scenario_detail(request, key):
+    uc = usecases_mod.get(key)
+    if not uc:
+        return redirect("scenarios_index")
+    page = int(request.GET.get("page", 1))
+    result = github_api.search_repos(
+        query=uc["query"],
+        sort="stars",
+        per_page=24,
+        page=page,
+    )
+    repos = _upsert_repos(result.get("items", []))
+    total = result.get("total_count", 0)
+    bookmarked_ids = set(Bookmark.objects.values_list("repository_id", flat=True))
+    return render(request, "discovery/scenario_detail.html", {
+        "uc": uc,
+        "repos": repos,
+        "total": total,
+        "page": page,
+        "has_next": total > page * 24,
+        "has_prev": page > 1,
+        "bookmarked_ids": bookmarked_ids,
         "error": result.get("error"),
     })

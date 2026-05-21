@@ -84,6 +84,41 @@
   .commit-bar.zero { background: var(--surface2); }
   .commit-bar:hover { opacity: 0.7; }
 
+  /* Screenshots gallery */
+  .gallery {
+    display: grid; gap: 8px; margin-bottom: 1.5rem;
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .gallery .hero { grid-column: span 3; }
+  .gallery .item {
+    position: relative; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 8px;
+    overflow: hidden; aspect-ratio: 16/9;
+  }
+  .gallery .hero { aspect-ratio: 16/8; }
+  .gallery img {
+    width: 100%; height: 100%; object-fit: cover;
+    transition: transform 0.2s;
+  }
+  .gallery .item:hover img { transform: scale(1.03); }
+  .gallery .gif-badge {
+    position: absolute; top: 6px; right: 6px;
+    background: rgba(0, 0, 0, 0.7); color: white;
+    font-size: 0.65rem; font-weight: 600;
+    padding: 1px 6px; border-radius: 3px;
+  }
+
+  /* Other works */
+  .other-work {
+    display: flex; gap: 8px; align-items: flex-start;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+    text-decoration: none;
+  }
+  .other-work:last-child { border-bottom: none; }
+  .other-work .name { color: var(--accent); font-size: 0.9rem; font-weight: 600; }
+  .other-work .desc { color: var(--text-muted); font-size: 0.78rem; line-height: 1.4; margin: 2px 0 0; }
+  .other-work .meta { color: var(--text-muted); font-size: 0.72rem; margin-top: 2px; }
+
   /* App package */
   .pkg-card {
     background: linear-gradient(135deg, rgba(63, 185, 80, 0.08), rgba(88, 166, 255, 0.05));
@@ -205,6 +240,17 @@
     </div>
   </div>
 </div>
+
+{% if screenshots %}
+<div class="gallery">
+  {% for img in screenshots %}
+  <a href="{{ img.url }}" target="_blank" rel="noopener" class="item {% if forloop.first %}hero{% endif %}">
+    <img src="{{ img.url }}" alt="screenshot" loading="lazy">
+    {% if img.is_gif %}<span class="gif-badge">GIF</span>{% endif %}
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
 
 {% if app_package %}
 <div class="pkg-card">
@@ -342,6 +388,25 @@
       <p class="text-muted small mb-0">暂无数据</p>
       {% endif %}
     </div>
+
+    <!-- Author's other works -->
+    {% if other_works %}
+    <div class="section-card">
+      <h3><i class="bi bi-collection-play"></i> {{ repo.owner_login }} 的其他作品</h3>
+      {% for w in other_works %}
+      <a href="{% url 'repo_detail' w.owner_login w.name %}" class="other-work">
+        <div style="flex: 1; min-width: 0;">
+          <div class="name">{{ w.name }}</div>
+          {% if w.description %}<p class="desc">{{ w.description|truncatechars:80 }}</p>{% endif %}
+          <div class="meta">
+            <i class="bi bi-star-fill" style="color: var(--yellow); font-size: 0.7rem;"></i> {{ w.stars }}
+            {% if w.language %} · {{ w.language }}{% endif %}
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
   </div>
 </div>
 

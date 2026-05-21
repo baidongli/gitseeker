@@ -291,6 +291,40 @@ def get_commit_activity_year(owner, repo):
         return []
 
 
+@cached("user_repos", ttl=3600)
+def get_user_repos(owner, exclude_repo=None, limit=8):
+    """Return the user/org's other top-starred non-fork repos."""
+    try:
+        resp = requests.get(
+            f"{GITHUB_API}/search/repositories",
+            headers=_headers(),
+            params={"q": f"user:{owner} fork:false archived:false", "sort": "stars", "order": "desc", "per_page": limit + 4},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        items = resp.json().get("items", [])
+        results = []
+        for r in items:
+            if exclude_repo and r["name"].lower() == exclude_repo.lower():
+                continue
+            results.append({
+                "github_id": r["id"],
+                "full_name": r["full_name"],
+                "name": r["name"],
+                "owner_login": owner,
+                "description": r.get("description") or "",
+                "html_url": r["html_url"],
+                "stars": r.get("stargazers_count", 0),
+                "language": r.get("language") or "",
+                "topics": r.get("topics", []),
+            })
+            if len(results) >= limit:
+                break
+        return results
+    except Exception:
+        return []
+
+
 @cached("similar", ttl=3600)
 def get_similar(repo, limit=6):
     """Find similar repos by topic and language. `repo` is a dict from _repo_from_data."""
