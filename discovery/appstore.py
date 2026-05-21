@@ -70,7 +70,7 @@ CATEGORIES = [
      "query": "topic:selfhosted archived:false stars:>1000"},
     {"key": "selfhosted-notes", "group": "自托管", "icon": "bi-journal-text",
      "title": "笔记/知识管理", "desc": "Notion / Evernote 替代品",
-     "query": "topic:selfhosted notion OR notes OR knowledge archived:false"},
+     "query": "topic:selfhosted topic:notes archived:false"},
     {"key": "selfhosted-media", "group": "自托管", "icon": "bi-film",
      "title": "媒体服务", "desc": "Plex / Jellyfin / 网盘",
      "query": "topic:selfhosted topic:media archived:false"},
